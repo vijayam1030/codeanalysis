@@ -142,19 +142,84 @@ async function getBestModel(language) {
   return preferredModel; // Return preferred even if we can't check availability
 }
 
-// Preprocess image for better OCR results
+// Enhanced image preprocessing for better OCR results
 async function preprocessImage(buffer) {
   try {
-    return await sharp(buffer)
-      .resize(null, 2000, { withoutEnlargement: true })
+    const image = sharp(buffer);
+    const metadata = await image.metadata();
+    
+    // Calculate optimal dimensions (OCR works best with DPI 300-400)
+    const targetHeight = Math.min(metadata.height * 2, 3000); // Scale up for better OCR
+    const targetWidth = Math.min(metadata.width * 2, 4000);
+    
+    // Advanced preprocessing pipeline
+    const processedImage = await image
+      // Resize for optimal OCR (larger is often better)
+      .resize(targetWidth, targetHeight, {
+        kernel: sharp.kernel.lanczos3, // High-quality interpolation
+        withoutEnlargement: false // Allow enlargement for small images
+      })
+      // Convert to grayscale for better OCR
       .grayscale()
+      // Enhance contrast adaptively
       .normalize()
-      .sharpen()
-      .png()
+      // Apply unsharp mask for better edge definition
+      .sharpen({
+        sigma: 1.5, // Stronger sharpening
+        m1: 1.0,    // Mask factor
+        m2: 0.2,    // Mask offset
+        x1: 2,      // Flat area threshold
+        y2: 10,     // Slope area threshold
+        y3: 20      // Limit threshold
+      })
+      // Enhance contrast further
+      .linear(1.2, -10) // Slightly increase contrast and reduce brightness
+      // Convert to high-quality PNG
+      .png({ 
+        compressionLevel: 0, // No compression for best quality
+        quality: 100 
+      })
       .toBuffer();
+    
+    console.log(`Image preprocessed: ${metadata.width}x${metadata.height} -> ${targetWidth}x${targetHeight}`);
+    return processedImage;
+    
   } catch (error) {
     console.error('Image preprocessing error:', error);
     return buffer; // Return original if preprocessing fails
+  }
+}
+
+// Alternative preprocessing for low-quality images
+async function preprocessImageAdvanced(buffer) {
+  try {
+    const image = sharp(buffer);
+    const metadata = await image.metadata();
+    
+    // For very small or low-quality images, use different approach
+    if (metadata.width < 800 || metadata.height < 600) {
+      return await image
+        .resize(metadata.width * 3, metadata.height * 3, {
+          kernel: sharp.kernel.cubic
+        })
+        .modulate({
+          brightness: 1.1,
+          saturation: 0.8,
+          hue: 0
+        })
+        .grayscale()
+        .sharpen({ sigma: 2 })
+        .threshold(128, { grayscale: false }) // Binary threshold
+        .png({ compressionLevel: 0 })
+        .toBuffer();
+    }
+    
+    // For better quality images, use standard preprocessing
+    return await preprocessImage(buffer);
+    
+  } catch (error) {
+    console.error('Advanced preprocessing error:', error);
+    return buffer;
   }
 }
 
@@ -271,30 +336,123 @@ function cleanGenericCode(code) {
     .replace(/\s*\/\s*/g, ' / ');
 }
 
-// Extract code from image using OCR
+// Enhanced OCR extraction with multiple strategies for better accuracy
 async function extractCodeFromImage(imageBuffer) {
   try {
-    const processedImage = await preprocessImage(imageBuffer);
+    // Try multiple preprocessing approaches for best results
+    const results = await Promise.allSettled([
+      extractWithStandardPreprocessing(imageBuffer),
+      extractWithAdvancedPreprocessing(imageBuffer),
+      extractWithHighContrastPreprocessing(imageBuffer)
+    ]);
     
-    const { data: { text } } = await Tesseract.recognize(processedImage, 'eng', {
-      logger: m => console.log('OCR Progress:', m),
-      tessedit_pageseg_mode: Tesseract.PSM.AUTO,
-      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]().,;:=+-*/<>?!@#$%^&|\\~`"\' \n\t_'
-    });
+    // Find the best result based on confidence and text quality
+    const successfulResults = results
+      .filter(result => result.status === 'fulfilled' && result.value.text.length > 0)
+      .map(result => result.value)
+      .sort((a, b) => b.confidence - a.confidence);
     
-    // Basic cleanup of extracted text
-    const basicCleanup = text
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0)
-      .join('\n')
-      .trim();
+    if (successfulResults.length === 0) {
+      throw new Error('All OCR attempts failed');
+    }
     
-    return basicCleanup;
+    const bestResult = successfulResults[0];
+    console.log(`Best OCR result: ${bestResult.confidence}% confidence, ${bestResult.text.length} characters`);
+    
+    return bestResult.text;
+    
   } catch (error) {
     console.error('OCR Error:', error);
     throw new Error('Failed to extract text from image');
   }
+}
+
+// Standard preprocessing OCR
+async function extractWithStandardPreprocessing(imageBuffer) {
+  const processedImage = await preprocessImage(imageBuffer);
+  
+  const result = await Tesseract.recognize(processedImage, 'eng', {
+    logger: m => console.log('Standard OCR:', m.status),
+    tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]().,;:=+-*/<>?!@#$%^&|\\~`"\' \n\t_',
+    tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY, // Use LSTM for better accuracy
+    preserve_interword_spaces: 1 // Preserve spacing
+  });
+  
+  return {
+    text: cleanupExtractedText(result.data.text),
+    confidence: result.data.confidence || 0
+  };
+}
+
+// Advanced preprocessing OCR for low-quality images
+async function extractWithAdvancedPreprocessing(imageBuffer) {
+  const processedImage = await preprocessImageAdvanced(imageBuffer);
+  
+  const result = await Tesseract.recognize(processedImage, 'eng', {
+    logger: m => console.log('Advanced OCR:', m.status),
+    tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK, // Single block for code
+    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]().,;:=+-*/<>?!@#$%^&|\\~`"\' \n\t_',
+    tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
+    preserve_interword_spaces: 1
+  });
+  
+  return {
+    text: cleanupExtractedText(result.data.text),
+    confidence: result.data.confidence || 0
+  };
+}
+
+// High contrast preprocessing for very clear/dark images
+async function extractWithHighContrastPreprocessing(imageBuffer) {
+  const processedImage = await sharp(imageBuffer)
+    .resize(null, 2000, { withoutEnlargement: false })
+    .grayscale()
+    .normalize()
+    .threshold(128) // Binary threshold for high contrast
+    .sharpen({ sigma: 1 })
+    .png({ compressionLevel: 0 })
+    .toBuffer();
+  
+  const result = await Tesseract.recognize(processedImage, 'eng', {
+    logger: m => console.log('High Contrast OCR:', m.status),
+    tessedit_pageseg_mode: Tesseract.PSM.SINGLE_COLUMN, // Single column for code
+    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]().,;:=+-*/<>?!@#$%^&|\\~`"\' \n\t_',
+    tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
+    preserve_interword_spaces: 1
+  });
+  
+  return {
+    text: cleanupExtractedText(result.data.text),
+    confidence: result.data.confidence || 0
+  };
+}
+
+// Enhanced text cleanup for better code extraction
+function cleanupExtractedText(rawText) {
+  // Basic cleanup
+  let cleanedText = rawText
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .join('\n')
+    .trim();
+  
+  // Remove common OCR artifacts specific to code
+  cleanedText = cleanedText
+    .replace(/[""]/g, '"')        // Smart quotes
+    .replace(/['']/g, "'")        // Smart apostrophes
+    .replace(/…/g, '...')         // Ellipsis
+    .replace(/—/g, '-')           // Em dash
+    .replace(/–/g, '-')           // En dash
+    .replace(/\u00A0/g, ' ')      // Non-breaking space
+    .replace(/\u2028/g, '\n')     // Line separator
+    .replace(/\u2029/g, '\n')     // Paragraph separator
+    .replace(/\s+$/gm, '')        // Remove trailing spaces
+    .replace(/\r\n/g, '\n')       // Normalize line endings
+    .replace(/\r/g, '\n');
+  
+  return cleanedText;
 }
 
 // Analyze code using LLM
