@@ -161,6 +161,9 @@ import { CodeAnalyzerService, AnalysisResult } from '../../services/code-analyze
             <mat-card-subtitle>
               Language: {{ analysisResult.detectedLanguage | titlecase }}
               <span *ngIf="analysisResult.fromCache" class="cache-indicator">(from cache)</span>
+              <span class="line-count-indicator">
+                • {{ analysisResult.analysis.lineAnalysis.length || 0 }} of {{ getCodeLineCount() }} lines analyzed
+              </span>
             </mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
@@ -542,5 +545,12 @@ export class CodeAnalyzerComponent implements OnInit, OnDestroy {
       duration: 2000,
       panelClass: ['success-snackbar']
     });
+  }
+
+  getCodeLineCount(): number {
+    if (!this.analysisResult?.extractedCode) {
+      return 0;
+    }
+    return this.analysisResult.extractedCode.split('\n').length;
   }
 }

@@ -305,6 +305,8 @@ async function analyzeCodeWithLLM(code, prompt, language) {
     
     const systemPrompt = `You are an expert code reviewer, educator, and code formatter. Analyze the provided ${language} code and provide comprehensive feedback based on the user's request.
 
+CRITICAL REQUIREMENT: You MUST analyze EVERY SINGLE LINE of code. Do not skip any lines. Even blank lines or simple statements need analysis.
+
 IMPORTANT: Always return a valid JSON object with the exact structure below. Do not include any text outside the JSON.
 
 {
@@ -313,16 +315,16 @@ IMPORTANT: Always return a valid JSON object with the exact structure below. Do 
   "lineAnalysis": [
     {
       "lineNumber": 1,
-      "originalCode": "exact original line of code",
-      "explanation": "clear explanation of what this line does",
+      "originalCode": "exact original line of code (including if it's blank or whitespace)",
+      "explanation": "clear explanation of what this line does (for blank lines, explain their purpose in code structure)",
       "suggestions": ["specific improvement suggestion 1", "specific improvement suggestion 2"],
       "severity": "info|warning|error",
-      "category": "performance|readability|security|best-practice|syntax"
+      "category": "performance|readability|security|best-practice|syntax|structure"
     }
   ],
   "overallSuggestions": [
     "Overall code structure improvements",
-    "Best practices recommendations",
+    "Best practices recommendations", 
     "Performance optimization suggestions"
   ],
   "cleanedCode": "properly formatted and cleaned version of the original code with correct indentation and spacing",
@@ -332,7 +334,7 @@ IMPORTANT: Always return a valid JSON object with the exact structure below. Do 
     "Specific security vulnerability 2"
   ],
   "performanceIssues": [
-    "Specific performance bottleneck 1",
+    "Specific performance bottleneck 1", 
     "Specific performance optimization opportunity 2"
   ],
   "codeQuality": {
@@ -343,28 +345,37 @@ IMPORTANT: Always return a valid JSON object with the exact structure below. Do 
   }
 }
 
-Focus on:
-1. **Code Formatting**: Proper indentation, spacing, and structure
-2. **Best Practices**: Language-specific conventions and patterns
-3. **Performance**: Optimization opportunities and bottlenecks
-4. **Security**: Vulnerabilities and secure coding practices
+ANALYSIS REQUIREMENTS:
+1. **EVERY LINE**: Analyze each line individually, including imports, declarations, blank lines, comments
+2. **Line-by-Line Comments**: Provide detailed explanation for what each line accomplishes
+3. **Code Formatting**: Proper indentation, spacing, and structure
+4. **Best Practices**: Language-specific conventions and patterns
+5. **Performance**: Optimization opportunities and bottlenecks
+6. **Security**: Vulnerabilities and secure coding practices
 5. **Readability**: Clear variable names, comments, and structure
 6. **Error Handling**: Proper exception handling and edge cases
 7. **Maintainability**: Code organization and modularity
 
 Provide both a cleaned version (proper formatting) and refactored version (with improvements).`;
 
-    const userPrompt = `${prompt}\n\nCode to analyze:\n\`\`\`${language}\n${code}\n\`\`\``;
+    const userPrompt = `${prompt}
+
+REMEMBER: You must analyze EVERY SINGLE LINE of the code below. Count the lines and ensure your lineAnalysis array has an entry for each line number from 1 to the total number of lines.
+
+Code to analyze (${code.split('\n').length} lines total):
+\`\`\`${language}
+${code}
+\`\`\``;
 
     const response = await axios.post(`${process.env.OLLAMA_URL || 'http://localhost:11434'}/api/generate`, {
       model: model,
       prompt: `${systemPrompt}\n\nUser Request: ${userPrompt}`,
       stream: false,
       options: {
-        temperature: 0.3,
-        top_p: 0.9,
-        top_k: 40,
-        num_predict: 2048
+        temperature: 0.1,  // Lower temperature for more consistent analysis
+        top_p: 0.8,
+        top_k: 20,
+        num_predict: 3072  // Increased for longer responses
       }
     });
 
@@ -376,6 +387,17 @@ Provide both a cleaned version (proper formatting) and refactored version (with 
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsedResponse = JSON.parse(jsonMatch[0]);
+        
+        // Validate that all lines are analyzed
+        const totalLines = code.split('\n').length;
+        const analyzedLines = parsedResponse.lineAnalysis?.length || 0;
+        
+        console.log(`Line analysis validation: ${analyzedLines}/${totalLines} lines analyzed`);
+        
+        if (analyzedLines < totalLines) {
+          console.warn(`Warning: Only ${analyzedLines} of ${totalLines} lines were analyzed by LLM`);
+        }
+        
         return parsedResponse;
       }
     } catch (parseError) {
@@ -384,15 +406,22 @@ Provide both a cleaned version (proper formatting) and refactored version (with 
 
     // Fallback: create structured response from text
     console.log('Creating fallback response structure...');
-    const lines = code.split('\n').filter(line => line.trim());
-    const lineAnalysis = lines.map((line, index) => ({
-      lineNumber: index + 1,
-      originalCode: line.trim(),
-      explanation: `This line contains: ${line.trim()}`,
-      suggestions: ["Consider adding comments for clarity"],
-      severity: "info",
-      category: "readability"
-    }));
+    const lines = code.split('\n'); // Keep ALL lines including empty ones
+    const lineAnalysis = lines.map((line, index) => {
+      const trimmedLine = line.trim();
+      return {
+        lineNumber: index + 1,
+        originalCode: line, // Keep original formatting
+        explanation: trimmedLine === '' ? 
+          "Empty line - provides visual separation and code structure" : 
+          `This line contains: ${trimmedLine}`,
+        suggestions: trimmedLine === '' ? 
+          ["Empty lines help with code readability"] : 
+          ["Consider adding comments for clarity"],
+        severity: "info",
+        category: trimmedLine === '' ? "structure" : "readability"
+      };
+    });
 
     return {
       language: language,
