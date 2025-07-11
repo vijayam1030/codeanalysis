@@ -1,74 +1,84 @@
+// Main container for the code analyzer interface
 .analyzer-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 1rem;
+  max-width: 1200px; // Constrains width for optimal readability on large screens
+  margin: 0 auto; // Centers the container horizontally using auto margins
+  padding: 1rem; // Provides consistent internal spacing of 16px
   
-  // Common card styles
+  // Common card styles applied to all major interface sections
   .upload-card, .prompt-card, .results-card, .history-card {
-    margin-bottom: 2rem;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
+    margin-bottom: 2rem; // Creates vertical spacing between major sections (32px)
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); // Subtle elevation shadow for depth perception
+    border-radius: 8px; // Rounded corners for modern, friendly appearance
   }
   
-  // Upload section
+  // File upload drag-and-drop zone styling
   .drop-zone {
-    border: 2px dashed #ddd;
-    border-radius: 8px;
-    padding: 2rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    background: #fafafa;
+    border: 2px dashed #ddd; // Dashed border indicates this is a drop zone for files
+    border-radius: 8px; // Consistent rounded corners with card design
+    padding: 2rem; // Generous padding (32px) creates large, easy-to-target drop area
+    text-align: center; // Centers all content within the drop zone
+    cursor: pointer; // Indicates the area is clickable/interactive
+    transition: all 0.3s ease; // Smooth animations for hover and drag states
+    background: #fafafa; // Light gray background distinguishes from surrounding content
     
+    // Interactive states for hover and drag-over events
     &:hover, &.dragover {
-      border-color: #3f51b5;
-      background: #f0f0ff;
+      border-color: #3f51b5; // Changes to primary blue when user hovers or drags files
+      background: #f0f0ff; // Light blue tint provides visual feedback for interaction
     }
     
+    // Large upload icon for visual prominence
     .upload-icon {
-      font-size: 3rem;
-      color: #999;
-      margin-bottom: 1rem;
+      font-size: 3rem; // Large icon size (48px) ensures high visibility
+      color: #999; // Muted gray color keeps icon subtle but visible
+      margin-bottom: 1rem; // Space below icon before text content
     }
     
+    // Primary upload instruction text
     .upload-text {
-      font-size: 1.1rem;
-      color: #666;
-      margin-bottom: 0.5rem;
+      font-size: 1.1rem; // Slightly larger than body text for emphasis
+      color: #666; // Medium gray provides good contrast while remaining approachable
+      margin-bottom: 0.5rem; // Tight spacing to hint text below
     }
     
+    // Secondary hint text for additional upload options
     .upload-hint {
-      font-size: 0.9rem;
-      color: #999;
+      font-size: 0.9rem; // Smaller text indicates secondary importance
+      color: #999; // Lighter gray creates visual hierarchy
     }
   }
   
+  // Container for uploaded image preview
   .image-preview {
-    margin-top: 1rem;
-    text-align: center;
+    margin-top: 1rem; // Space above preview area
+    text-align: center; // Centers the preview image
     
+    // Uploaded image styling
     img {
-      max-width: 100%;
-      max-height: 300px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      max-width: 100%; // Ensures image never exceeds container width
+      max-height: 300px; // Limits preview height to prevent overwhelming the interface
+      border-radius: 8px; // Consistent rounded corners with overall design
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); // Subtle shadow adds depth to preview
     }
   }
 
-  // Prompt section
+  // Prompt input section styling
+  // Utility class for full-width form elements
   .full-width {
-    width: 100%;
+    width: 100%; // Forces input fields to take full available width
   }
   
+  // Container for prompt template chips/buttons
   .prompt-templates {
-    margin-top: 1rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    margin-top: 1rem; // Space above template selection area
+    display: flex; // Flexbox layout for template chips
+    flex-wrap: wrap; // Allows chips to wrap to new lines on smaller screens
+    gap: 0.5rem; // Consistent spacing between template chips
     
+    // Individual template chip styling
     .template-chip {
-      font-size: 0.8rem;
-      height: 2rem;
+      font-size: 0.8rem; // Smaller text for compact chip appearance
+      height: 2rem; // Fixed height ensures uniform chip sizes
     }
   }
 
@@ -132,102 +142,119 @@
       }
     }
 
-    // Code analysis
+    // Detailed code analysis with line-by-line breakdown
     .code-analysis-section {
+      // Container for individual code blocks
       .code-display {
-        background: #2d3748;
-        border-radius: 8px;
-        margin-bottom: 1rem;
+        background: #2d3748; // Dark background for code display (dark theme)
+        border-radius: 8px; // Consistent rounded corners
+        margin-bottom: 1rem; // Space below each code block
         
+        // Header bar for code blocks (filename, actions, etc.)
         .code-header {
-          background: #1a202c;
-          color: white;
-          padding: 0.5rem 1rem;
-          border-radius: 8px 8px 0 0;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
+          background: #1a202c; // Darker background than code area for contrast
+          color: white; // White text for high contrast on dark background
+          padding: 0.5rem 1rem; // Compact padding for header bar
+          border-radius: 8px 8px 0 0; // Rounded top corners only
+          display: flex; // Flexbox for header content layout
+          justify-content: space-between; // Spreads header content across width
+          align-items: center; // Vertically centers header elements
           
+          // Header text labels
           span {
-            font-weight: 500;
-            text-transform: uppercase;
+            font-weight: 500; // Medium weight for header labels
+            text-transform: uppercase; // Uppercase for header styling
           }
           
+          // Header action buttons
           button {
-            color: white;
+            color: white; // White buttons on dark header background
           }
         }
         
+        // Main code content area
         .code-content {
-          padding: 1rem;
-          max-height: 600px;
-          overflow-y: auto;
+          padding: 1rem; // Internal padding for code content
+          max-height: 600px; // Limits height to prevent excessive scrolling
+          overflow-y: auto; // Enables vertical scrolling when content exceeds height
           
+          // Groups of code lines with their analysis
           .code-line-group {
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.5rem; // Space between different code line groups
             
+            // Individual code line display
             .code-line {
-              display: flex;
-              font-family: 'Courier New', monospace;
+              display: flex; // Flexbox for line number + code content layout
+              font-family: 'Courier New', monospace; // Monospace font for code readability
               
+              // Line number display
               .line-number {
-                color: #718096;
-                width: 3rem;
-                text-align: right;
-                margin-right: 1rem;
-                user-select: none;
+                color: #718096; // Muted color for line numbers
+                width: 3rem; // Fixed width ensures consistent alignment
+                text-align: right; // Right-align line numbers for clean appearance
+                margin-right: 1rem; // Space between line number and code content
+                user-select: none; // Prevents line numbers from being selected when copying
               }
               
+              // Actual code content
               .line-content {
-                color: #e2e8f0;
-                flex: 1;
-                white-space: pre-wrap;
+                color: #e2e8f0; // Light color for code text on dark background
+                flex: 1; // Takes all remaining space after line number
+                white-space: pre-wrap; // Preserves whitespace and enables wrapping
               }
             }
             
+            // Analysis commentary for individual code lines
             .line-analysis {
-              background: rgba(255, 255, 255, 0.9);
-              margin-left: 2rem;
-              margin-top: 0.5rem;
-              padding: 0.8rem;
-              border-radius: 6px;
-              border-left: 4px solid #4299e1;
+              background: rgba(255, 255, 255, 0.9); // Semi-transparent white overlay
+              margin-left: 2rem; // Indents analysis from code for clear association
+              margin-top: 0.5rem; // Space above analysis block
+              padding: 0.8rem; // Internal padding for analysis content
+              border-radius: 6px; // Rounded corners for analysis blocks
+              border-left: 4px solid #4299e1; // Blue accent border for visual distinction
               
+              // Main explanation text with icon
               .explanation {
-                display: flex;
-                align-items: flex-start;
-                gap: 0.5rem;
-                margin-bottom: 0.5rem;
+                display: flex; // Flexbox for icon + explanation text layout
+                align-items: flex-start; // Aligns content to top for multi-line text
+                gap: 0.5rem; // Space between icon and explanation text
+                margin-bottom: 0.5rem; // Space below explanation before suggestions
                 
+                // Icon for explanation (info, warning, etc.)
                 mat-icon {
-                  font-size: 1.2rem;
-                  margin-top: 0.1rem;
+                  font-size: 1.2rem; // Larger icon size for visibility
+                  margin-top: 0.1rem; // Fine-tune vertical alignment with text
                 }
                 
+                // Explanation text content
                 span {
-                  color: #2d3748;
-                  font-size: 0.9rem;
-                  line-height: 1.4;
+                  color: #2d3748; // Dark text for readability on light background
+                  font-size: 0.9rem; // Slightly smaller text for analysis content
+                  line-height: 1.4; // Improved line spacing for readability
                 }
               }
               
+              // Improvement suggestions section
               .suggestions {
+                // Section header for suggestions
                 h4 {
-                  margin: 0.5rem 0 0.3rem 0;
-                  font-size: 0.8rem;
-                  color: #4a5568;
-                  text-transform: uppercase;
-                  letter-spacing: 0.5px;
+                  margin: 0.5rem 0 0.3rem 0; // Tight margins for compact header
+                  font-size: 0.8rem; // Small text for section headers
+                  color: #4a5568; // Medium gray for section headers
+                  text-transform: uppercase; // Uppercase styling for headers
+                  letter-spacing: 0.5px; // Slight letter spacing for readability
                 }
                 
+                // List of suggestions
                 ul {
-                  margin: 0;
-                  padding-left: 1rem;
+                  margin: 0; // Removes default list margins
+                  padding-left: 1rem; // Standard indentation for list items
                   
+                  // Individual suggestion items
                   li {
-                    font-size: 0.85rem;
-                    color: #2d3748;
-                    margin-bottom: 0.2rem;
+                    font-size: 0.85rem; // Small text for suggestion items
+                    color: #2d3748; // Dark text for good readability
+                    margin-bottom: 0.2rem; // Tight spacing between suggestion items
                   }
                 }
               }
@@ -399,46 +426,54 @@
   }
 }
 
-// Responsive design
+// Responsive design for mobile devices (tablets and phones)
 @media (max-width: 768px) {
   .analyzer-container {
-    padding: 0.5rem;
+    padding: 0.5rem; // Reduced padding on mobile to maximize screen space
     
+    // Mobile-optimized drop zone
     .drop-zone {
-      padding: 1rem;
+      padding: 1rem; // Reduced padding while maintaining usability
       
+      // Smaller upload icon for mobile screens
       .upload-icon {
-        font-size: 2rem;
+        font-size: 2rem; // Reduced from 3rem for better mobile proportions
       }
     }
     
+    // Stack action buttons vertically on mobile
     .action-section {
-      flex-direction: column;
+      flex-direction: column; // Changes from horizontal to vertical layout
       
+      // Full-width analyze button for better mobile UX
       .analyze-button {
-        width: 100%;
+        width: 100%; // Full width provides better touch target
       }
     }
     
+    // Single column layout for quality metrics on mobile
     .results-section .quality-metrics {
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr; // Forces single column instead of multi-column
     }
     
+    // Stack download buttons vertically on mobile
     .results-section .download-section .download-buttons {
-      flex-direction: column;
+      flex-direction: column; // Vertical stacking for better mobile usability
     }
   }
 }
 
-// Snackbar overrides
+// Angular Material snackbar customizations
 .mat-mdc-snack-bar-container {
+  // Success notification styling
   &.success-snackbar {
-    --mdc-snackbar-container-color: #4caf50;
-    --mdc-snackbar-supporting-text-color: white;
+    --mdc-snackbar-container-color: #4caf50; // Green background for success messages
+    --mdc-snackbar-supporting-text-color: white; // White text for contrast
   }
   
+  // Error notification styling
   &.error-snackbar {
-    --mdc-snackbar-container-color: #f44336;
-    --mdc-snackbar-supporting-text-color: white;
+    --mdc-snackbar-container-color: #f44336; // Red background for error messages
+    --mdc-snackbar-supporting-text-color: white; // White text for contrast
   }
 }
