@@ -682,6 +682,461 @@ function cleanupExtractedText(rawText) {
   return cleanedText;
 }
 
+// Enhanced SQL line analysis function
+function analyzeSQLLine(trimmedLine, lineNumber, originalLine) {
+  const upperLine = trimmedLine.toUpperCase();
+  
+  // SQL Keywords and their explanations
+  const sqlAnalysis = {
+    explanation: '',
+    suggestions: [],
+    severity: 'info',
+    category: 'syntax'
+  };
+  
+  // Detailed SQL analysis based on content
+  if (upperLine.includes('SELECT')) {
+    if (upperLine.includes('XMLELEMENT')) {
+      sqlAnalysis.explanation = "SQL/XML function XMLELEMENT creates an XML element with the specified tag name. This is Oracle's SQL/XML functionality for generating XML content from relational data. The function takes an element name as the first parameter and content as subsequent parameters to create structured XML output. XMLELEMENT is part of Oracle's XMLType functionality and allows you to construct XML documents within SQL queries. The syntax is XMLELEMENT(element_name, content1, content2, ...) where element_name becomes the XML tag and content parameters become the tag's content or attributes.";
+      sqlAnalysis.suggestions = [
+        "Complete the XMLELEMENT function with proper closing syntax and content parameters",
+        "Consider using XMLSerializer for complex XML generation and formatting",
+        "Ensure proper XML namespace handling if working with namespaced XML",
+        "Add proper XML content parameters after the element name - they can be column values or other XML functions",
+        "Consider performance implications of XML generation in large result sets",
+        "Use XMLAgg if you need to aggregate multiple XML elements",
+        "Validate XML output format matches expected schema requirements"
+      ];
+      sqlAnalysis.category = "xml-functions";
+    } else if (upperLine.includes('DISTINCT')) {
+      sqlAnalysis.explanation = "SELECT DISTINCT clause removes duplicate rows from the result set. This operation can be expensive on large datasets as it requires sorting or hashing to identify duplicates.";
+      sqlAnalysis.suggestions = [
+        "Consider if DISTINCT is actually needed - sometimes proper JOINs eliminate duplicates",
+        "Add indexes on the columns being selected for better performance",
+        "Review if GROUP BY might be more appropriate for aggregation"
+      ];
+      sqlAnalysis.category = "performance";
+    } else if (upperLine.includes('*')) {
+      sqlAnalysis.explanation = "SELECT * retrieves all columns from the table(s). While convenient, this can impact performance and may return unnecessary data.";
+      sqlAnalysis.suggestions = [
+        "Specify only the columns you need instead of using SELECT *",
+        "Consider the network overhead of transferring unused columns",
+        "Be aware that SELECT * can break applications if table structure changes"
+      ];
+      sqlAnalysis.category = "best-practice";
+      sqlAnalysis.severity = "warning";
+    } else {
+      sqlAnalysis.explanation = "SELECT clause specifies which columns to retrieve from the database. This is the foundation of data retrieval in SQL.";
+      sqlAnalysis.suggestions = [
+        "Use meaningful column aliases for better readability",
+        "Consider the order of columns for optimal performance",
+        "Ensure all selected columns are necessary for the query purpose"
+      ];
+    }
+  } else if (upperLine.includes('FROM')) {
+    if (upperLine.includes(',')) {
+      sqlAnalysis.explanation = "Old-style comma-separated table join syntax (also called 'implicit join' or 'theta join'). This creates a Cartesian product between all listed tables, meaning every row from the first table is combined with every row from the second table, and so on. Without proper WHERE clause filtering, this can result in an enormous number of rows (table1_rows × table2_rows × ...). This syntax is deprecated and dangerous because it's easy to forget join conditions, leading to performance issues or incorrect results. The join conditions must be specified in the WHERE clause, making the query logic less clear than explicit JOIN syntax.";
+      sqlAnalysis.suggestions = [
+        "Replace comma joins with explicit JOIN syntax for better readability and safety",
+        "Use INNER JOIN, LEFT JOIN, RIGHT JOIN, etc. to make join intentions explicitly clear",
+        "Ensure proper WHERE conditions exist to avoid Cartesian products that can crash your database",
+        "Modern JOIN syntax separates join conditions from filtering conditions, improving query clarity",
+        "Explicit JOINs are easier to debug and maintain than comma-separated table lists",
+        "Consider that explicit JOINs often provide better query optimization by the database engine",
+        "Always verify join conditions exist for each table relationship to prevent accidental Cartesian products"
+      ];
+      sqlAnalysis.category = "joins";
+      sqlAnalysis.severity = "warning";
+    } else {
+      sqlAnalysis.explanation = "FROM clause specifies the source table(s) for the query. This establishes the base dataset for the SELECT operation.";
+      sqlAnalysis.suggestions = [
+        "Use table aliases for better readability in complex queries",
+        "Consider if indexes exist on the table for optimal performance",
+        "Ensure table names are fully qualified in multi-database environments"
+      ];
+    }
+  } else if (upperLine.includes('WHERE')) {
+    if (upperLine.includes('(+)')) {
+      sqlAnalysis.explanation = "Oracle-specific outer join syntax using (+) operator. This creates an outer join where the table with (+) includes NULLs when no matching records exist. The (+) symbol indicates which table should include NULL values for non-matching rows. For example, 'WHERE A.id (+) = B.id' creates a RIGHT OUTER JOIN, while 'WHERE A.id = B.id (+)' creates a LEFT OUTER JOIN. This syntax predates the ANSI JOIN syntax and is Oracle proprietary, making it non-portable to other database systems. The (+) operator can only be used on one side of the comparison and has limitations compared to modern JOIN syntax.";
+      sqlAnalysis.suggestions = [
+        "Replace Oracle-specific (+) syntax with standard LEFT JOIN or RIGHT JOIN for better portability",
+        "Use explicit JOIN syntax: 'FROM table1 LEFT JOIN table2 ON table1.id = table2.id' instead of WHERE clause joins",
+        "Consider performance implications of outer joins on large datasets - they can be slower than inner joins",
+        "Modern JOIN syntax provides better query optimization opportunities",
+        "ANSI JOIN syntax is more readable and self-documenting than (+) syntax",
+        "Ensure proper indexing on join columns for optimal performance"
+      ];
+      sqlAnalysis.category = "joins";
+      sqlAnalysis.severity = "warning";
+    } else if (upperLine.includes('LIKE')) {
+      sqlAnalysis.explanation = "LIKE operator performs pattern matching with wildcards. Can be performance-intensive, especially with leading wildcards.";
+      sqlAnalysis.suggestions = [
+        "Avoid leading wildcards (LIKE '%pattern') as they prevent index usage",
+        "Consider full-text search for complex pattern matching",
+        "Use = operator instead of LIKE when exact matches are needed"
+      ];
+      sqlAnalysis.category = "performance";
+    } else if (upperLine.includes('IN')) {
+      sqlAnalysis.explanation = "IN operator checks if a value matches any value in a list or subquery. Can be optimized with proper indexing.";
+      sqlAnalysis.suggestions = [
+        "Consider using EXISTS instead of IN for subqueries for better performance",
+        "Ensure indexes exist on the columns being compared",
+        "Be aware of NULL handling - IN doesn't match NULL values"
+      ];
+      sqlAnalysis.category = "performance";
+    } else {
+      sqlAnalysis.explanation = "WHERE clause filters rows based on specified conditions. This is crucial for query performance and result accuracy.";
+      sqlAnalysis.suggestions = [
+        "Ensure indexes exist on columns used in WHERE conditions",
+        "Place most selective conditions first for better performance",
+        "Consider the data distribution when writing conditions"
+      ];
+    }
+  } else if (upperLine.includes('JOIN')) {
+    if (upperLine.includes('LEFT')) {
+      sqlAnalysis.explanation = "LEFT JOIN returns all rows from the left table and matching rows from the right table. Non-matching rows from the right table appear as NULL.";
+      sqlAnalysis.suggestions = [
+        "Ensure proper indexes exist on join columns",
+        "Consider if INNER JOIN would be more appropriate",
+        "Be aware of potential performance impact with large datasets"
+      ];
+      sqlAnalysis.category = "joins";
+    } else if (upperLine.includes('INNER')) {
+      sqlAnalysis.explanation = "INNER JOIN returns only rows that have matching values in both tables. This is the most common and usually most efficient join type.";
+      sqlAnalysis.suggestions = [
+        "Ensure indexes exist on join columns for optimal performance",
+        "Consider join order for better query optimization",
+        "Verify that the join condition is correct to avoid unexpected results"
+      ];
+      sqlAnalysis.category = "joins";
+    } else {
+      sqlAnalysis.explanation = "JOIN operation combines rows from two or more tables based on a related column between them.";
+      sqlAnalysis.suggestions = [
+        "Always specify the join type (INNER, LEFT, RIGHT, FULL) for clarity",
+        "Ensure proper indexes exist on join columns",
+        "Consider the cardinality of the join for performance optimization"
+      ];
+      sqlAnalysis.category = "joins";
+    }
+  } else if (upperLine.includes('ORDER BY')) {
+    sqlAnalysis.explanation = "ORDER BY clause sorts the result set by one or more columns. This operation can be expensive on large datasets.";
+    sqlAnalysis.suggestions = [
+      "Consider if sorting is necessary - it adds processing overhead",
+      "Use indexes on ORDER BY columns for better performance",
+      "Limit the result set with LIMIT/TOP before sorting when possible"
+    ];
+    sqlAnalysis.category = "performance";
+  } else if (upperLine.includes('GROUP BY')) {
+    sqlAnalysis.explanation = "GROUP BY clause groups rows that have the same values in specified columns. Used with aggregate functions like COUNT, SUM, AVG.";
+    sqlAnalysis.suggestions = [
+      "Ensure all non-aggregate columns in SELECT are included in GROUP BY",
+      "Consider composite indexes on GROUP BY columns",
+      "Use HAVING clause for filtering groups, not WHERE"
+    ];
+    sqlAnalysis.category = "aggregation";
+  } else if (upperLine.includes('HAVING')) {
+    sqlAnalysis.explanation = "HAVING clause filters groups after GROUP BY is applied. It's used with aggregate functions to filter grouped results.";
+    sqlAnalysis.suggestions = [
+      "Use WHERE instead of HAVING for filtering individual rows",
+      "Place conditions that don't require grouping in WHERE for better performance",
+      "Consider the performance impact of complex HAVING conditions"
+    ];
+    sqlAnalysis.category = "aggregation";
+  } else if (upperLine.includes('UNION')) {
+    sqlAnalysis.explanation = "UNION combines the result sets of two or more SELECT statements and removes duplicates. UNION ALL keeps duplicates and is faster.";
+    sqlAnalysis.suggestions = [
+      "Use UNION ALL if duplicates are not a concern for better performance",
+      "Ensure all SELECT statements have the same number and type of columns",
+      "Consider if a single query with OR conditions might be more efficient"
+    ];
+    sqlAnalysis.category = "set-operations";
+  } else if (upperLine.includes('CASE')) {
+    sqlAnalysis.explanation = "CASE statement provides conditional logic in SQL. It evaluates conditions and returns different values based on the results.";
+    sqlAnalysis.suggestions = [
+      "Consider using COALESCE or NULLIF for simple NULL handling",
+      "Ensure all CASE branches return compatible data types",
+      "Be aware that complex CASE statements can impact performance"
+    ];
+    sqlAnalysis.category = "conditional";
+  } else if (upperLine.includes('SUBQUERY') || upperLine.includes('EXISTS')) {
+    sqlAnalysis.explanation = "Subqueries or EXISTS clauses perform nested queries. EXISTS is generally more efficient than IN for subqueries.";
+    sqlAnalysis.suggestions = [
+      "Consider using JOINs instead of subqueries for better performance",
+      "Use EXISTS instead of IN for subqueries when checking for existence",
+      "Be aware of correlated vs non-correlated subqueries and their performance implications"
+    ];
+    sqlAnalysis.category = "subqueries";
+  } else if (upperLine.includes('CREATE')) {
+    sqlAnalysis.explanation = "CREATE statement is used to create database objects like tables, indexes, views, or procedures.";
+    sqlAnalysis.suggestions = [
+      "Ensure proper data types and constraints are specified",
+      "Consider adding appropriate indexes for query performance",
+      "Use meaningful names that follow your database naming conventions"
+    ];
+    sqlAnalysis.category = "ddl";
+  } else if (upperLine.includes('INSERT')) {
+    sqlAnalysis.explanation = "INSERT statement adds new rows to a table. Performance can be optimized with bulk inserts and proper indexing.";
+    sqlAnalysis.suggestions = [
+      "Use bulk INSERT operations for better performance when adding multiple rows",
+      "Consider disabling indexes during large bulk inserts",
+      "Ensure proper error handling for constraint violations"
+    ];
+    sqlAnalysis.category = "dml";
+  } else if (upperLine.includes('UPDATE')) {
+    sqlAnalysis.explanation = "UPDATE statement modifies existing rows in a table. Always use WHERE clause to avoid updating all rows.";
+    sqlAnalysis.suggestions = [
+      "Always include a WHERE clause to avoid updating all rows",
+      "Consider using JOINs in UPDATE statements for complex conditions",
+      "Be aware of locking implications in multi-user environments"
+    ];
+    sqlAnalysis.category = "dml";
+    sqlAnalysis.severity = "warning";
+  } else if (upperLine.includes('DELETE')) {
+    sqlAnalysis.explanation = "DELETE statement removes rows from a table. Always use WHERE clause to avoid deleting all rows.";
+    sqlAnalysis.suggestions = [
+      "Always include a WHERE clause to avoid deleting all rows",
+      "Consider using TRUNCATE for removing all rows (faster but less safe)",
+      "Be aware of foreign key constraints that might prevent deletion"
+    ];
+    sqlAnalysis.category = "dml";
+    sqlAnalysis.severity = "warning";
+  } else {
+    // Generic SQL analysis with detailed breakdown
+    let detailedExplanation = `SQL statement: ${trimmedLine}. `;
+    let detailedSuggestions = [];
+    
+    // Analyze specific SQL elements in the line
+    if (upperLine.includes('AND') || upperLine.includes('OR')) {
+      detailedExplanation += "This line contains logical operators (AND/OR) that combine multiple conditions. AND requires all conditions to be true, while OR requires at least one condition to be true. The order of evaluation follows standard precedence rules where AND has higher precedence than OR.";
+      detailedSuggestions.push("Use parentheses to make logical operator precedence explicit");
+      detailedSuggestions.push("Consider the selectivity of each condition for optimal performance");
+    }
+    
+    if (upperLine.includes('NULL')) {
+      detailedExplanation += "This line involves NULL handling. NULL represents missing or unknown data in SQL and requires special handling with IS NULL or IS NOT NULL operators.";
+      detailedSuggestions.push("Use IS NULL or IS NOT NULL instead of = NULL or != NULL");
+      detailedSuggestions.push("Consider how NULL values affect your query results and joins");
+    }
+    
+    if (upperLine.includes('=') && !upperLine.includes('IS')) {
+      detailedExplanation += "This line contains an equality comparison operator. SQL uses = for equality testing between values.";
+      detailedSuggestions.push("Ensure both sides of the comparison are of compatible data types");
+      detailedSuggestions.push("Consider indexing on columns used in equality comparisons");
+    }
+    
+    if (upperLine.includes('(') && upperLine.includes(')')) {
+      detailedExplanation += "This line contains parentheses which are used for grouping expressions, function calls, or subqueries.";
+      detailedSuggestions.push("Ensure proper parentheses matching and nesting");
+      detailedSuggestions.push("Use parentheses to make operator precedence explicit");
+    }
+    
+    // Add column/table references if found
+    const columnPattern = /[A-Z_][A-Z0-9_]*\.[A-Z_][A-Z0-9_]*/gi;
+    const columnRefs = trimmedLine.match(columnPattern);
+    if (columnRefs) {
+      detailedExplanation += ` The line references column(s): ${columnRefs.join(', ')}, which use table.column notation for clarity.`;
+      detailedSuggestions.push("Table aliases improve readability and reduce ambiguity");
+      detailedSuggestions.push("Consider if indexes exist on referenced columns for performance");
+    }
+    
+    // If no specific analysis, provide general SQL guidance
+    if (detailedSuggestions.length === 0) {
+      detailedExplanation += "This line contains SQL code that performs database operations. Each SQL statement should be properly formatted and optimized for performance.";
+      detailedSuggestions = [
+        "Ensure proper SQL syntax and formatting for readability",
+        "Consider performance implications of the operation on large datasets",
+        "Add appropriate error handling if this is part of a larger procedure",
+        "Use consistent naming conventions for tables and columns",
+        "Consider if this line could benefit from indexing optimization"
+      ];
+    }
+    
+    sqlAnalysis.explanation = detailedExplanation;
+    sqlAnalysis.suggestions = detailedSuggestions;
+  }
+  
+  return {
+    lineNumber: lineNumber,
+    originalCode: originalLine,
+    explanation: sqlAnalysis.explanation,
+    suggestions: sqlAnalysis.suggestions,
+    severity: sqlAnalysis.severity,
+    category: sqlAnalysis.category
+  };
+}
+
+// SQL Analysis Helper Functions
+function detectSQLQueryType(code) {
+  const upperCode = code.toUpperCase();
+  if (upperCode.includes('SELECT')) return 'SELECT';
+  if (upperCode.includes('INSERT')) return 'INSERT';
+  if (upperCode.includes('UPDATE')) return 'UPDATE';
+  if (upperCode.includes('DELETE')) return 'DELETE';
+  if (upperCode.includes('CREATE')) return 'CREATE';
+  if (upperCode.includes('ALTER')) return 'ALTER';
+  if (upperCode.includes('DROP')) return 'DROP';
+  return 'Unknown';
+}
+
+function extractTableNames(code) {
+  const tables = [];
+  const upperCode = code.toUpperCase();
+  
+  // Extract FROM clause tables
+  const fromMatch = upperCode.match(/FROM\s+([A-Z_][A-Z0-9_]*)/gi);
+  if (fromMatch) {
+    fromMatch.forEach(match => {
+      const table = match.replace(/FROM\s+/i, '').trim();
+      if (table && !tables.includes(table)) {
+        tables.push(table);
+      }
+    });
+  }
+  
+  // Extract comma-separated tables
+  const commaMatch = code.match(/FROM\s+([A-Z_][A-Z0-9_]*(?:\s*,\s*[A-Z_][A-Z0-9_]*)*)/gi);
+  if (commaMatch) {
+    commaMatch.forEach(match => {
+      const tableList = match.replace(/FROM\s+/i, '').split(',');
+      tableList.forEach(table => {
+        const cleanTable = table.trim();
+        if (cleanTable && !tables.includes(cleanTable)) {
+          tables.push(cleanTable);
+        }
+      });
+    });
+  }
+  
+  return tables;
+}
+
+function extractJoinTypes(code) {
+  const joins = [];
+  const upperCode = code.toUpperCase();
+  
+  const joinTypes = ['INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN', 'CROSS JOIN', 'LEFT OUTER JOIN', 'RIGHT OUTER JOIN'];
+  
+  joinTypes.forEach(joinType => {
+    if (upperCode.includes(joinType)) {
+      joins.push(joinType);
+    }
+  });
+  
+  // Check for Oracle outer join syntax
+  if (code.includes('(+)')) {
+    joins.push('Oracle Outer Join (+)');
+  }
+  
+  return joins;
+}
+
+function extractSQLFunctions(code) {
+  const functions = [];
+  const upperCode = code.toUpperCase();
+  
+  const commonFunctions = [
+    'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'DISTINCT',
+    'XMLELEMENT', 'XMLROOT', 'XMLAGG', 'XMLFOREST',
+    'COALESCE', 'NULLIF', 'CASE', 'DECODE', 'NVL', 'NVL2',
+    'SUBSTRING', 'CHARINDEX', 'LEN', 'TRIM', 'LTRIM', 'RTRIM',
+    'UPPER', 'LOWER', 'CONCAT', 'REPLACE',
+    'GETDATE', 'SYSDATE', 'NOW', 'CURRENT_DATE', 'CURRENT_TIME',
+    'DATE_FORMAT', 'DATE_ADD', 'DATE_SUB', 'EXTRACT'
+  ];
+  
+  commonFunctions.forEach(func => {
+    if (upperCode.includes(func)) {
+      functions.push(func);
+    }
+  });
+  
+  return functions;
+}
+
+function generateIndexRecommendations(code) {
+  const recommendations = [];
+  const upperCode = code.toUpperCase();
+  
+  // Check for WHERE clause columns
+  const whereMatch = upperCode.match(/WHERE\s+([A-Z_][A-Z0-9_]*)/gi);
+  if (whereMatch) {
+    whereMatch.forEach(match => {
+      const column = match.replace(/WHERE\s+/i, '').trim();
+      recommendations.push(`Consider index on ${column} for WHERE clause performance`);
+    });
+  }
+  
+  // Check for JOIN conditions
+  const joinMatch = upperCode.match(/ON\s+([A-Z_][A-Z0-9_]*)/gi);
+  if (joinMatch) {
+    joinMatch.forEach(match => {
+      const column = match.replace(/ON\s+/i, '').trim();
+      recommendations.push(`Consider index on ${column} for JOIN performance`);
+    });
+  }
+  
+  // Check for ORDER BY
+  if (upperCode.includes('ORDER BY')) {
+    recommendations.push('Consider composite index for ORDER BY columns');
+  }
+  
+  // Check for GROUP BY
+  if (upperCode.includes('GROUP BY')) {
+    recommendations.push('Consider composite index for GROUP BY columns');
+  }
+  
+  return recommendations.length > 0 ? recommendations : ['No specific index recommendations based on current analysis'];
+}
+
+function assessQueryComplexity(code) {
+  const upperCode = code.toUpperCase();
+  let complexity = 0;
+  
+  // Add complexity points
+  if (upperCode.includes('JOIN')) complexity += 2;
+  if (upperCode.includes('SUBQUERY') || upperCode.includes('EXISTS')) complexity += 3;
+  if (upperCode.includes('UNION')) complexity += 2;
+  if (upperCode.includes('GROUP BY')) complexity += 1;
+  if (upperCode.includes('ORDER BY')) complexity += 1;
+  if (upperCode.includes('HAVING')) complexity += 2;
+  if (upperCode.includes('CASE')) complexity += 1;
+  if (upperCode.includes('XMLELEMENT')) complexity += 2;
+  
+  // Count number of tables
+  const tableCount = (upperCode.match(/FROM\s+/g) || []).length;
+  complexity += tableCount;
+  
+  if (complexity <= 3) return 'Simple';
+  if (complexity <= 7) return 'Medium';
+  return 'Complex';
+}
+
+function detectDatabaseDialect(code) {
+  const upperCode = code.toUpperCase();
+  
+  // Oracle-specific features
+  if (code.includes('(+)') || upperCode.includes('DUAL') || upperCode.includes('SYSDATE') || upperCode.includes('NVL')) {
+    return 'Oracle';
+  }
+  
+  // SQL Server-specific features
+  if (code.includes('@@') || upperCode.includes('GETDATE') || upperCode.includes('ISNULL') || upperCode.includes('TOP')) {
+    return 'SQL Server';
+  }
+  
+  // MySQL-specific features
+  if (upperCode.includes('LIMIT') || upperCode.includes('NOW()') || upperCode.includes('DATE_FORMAT')) {
+    return 'MySQL';
+  }
+  
+  // PostgreSQL-specific features
+  if (upperCode.includes('SERIAL') || upperCode.includes('JSONB') || upperCode.includes('GENERATE_SERIES')) {
+    return 'PostgreSQL';
+  }
+  
+  return 'Generic SQL';
+}
+
 // Analyze code using LLM
 async function analyzeCodeWithLLM(code, prompt, language) {
   try {
@@ -691,9 +1146,17 @@ async function analyzeCodeWithLLM(code, prompt, language) {
     // Create language-specific system prompt
     let systemPrompt;
     if (language === 'sql') {
-      systemPrompt = `You are an expert SQL database developer, performance tuner, and security analyst. Analyze the provided SQL code and provide comprehensive feedback based on the user's request.
+      console.log('Using specialized SQL analysis prompt');
+      systemPrompt = `You are an expert SQL database developer, performance tuner, and security analyst with deep knowledge of Oracle, SQL Server, MySQL, and PostgreSQL. 
 
-CRITICAL REQUIREMENT: You MUST analyze EVERY SINGLE LINE of SQL code. Do not skip any lines. Even blank lines or simple statements need analysis.
+MANDATORY REQUIREMENTS:
+1. ANALYZE EVERY SINGLE LINE of SQL code with detailed technical explanations
+2. ALWAYS provide detailed explanations AND multiple specific suggestions for each line
+3. User requests are ADDITIONAL to the mandatory line-by-line analysis
+4. NEVER use generic phrases like "Consider adding comments for clarity"
+5. ALWAYS provide specific, technical SQL explanations
+
+CRITICAL REQUIREMENT: You MUST analyze EVERY SINGLE LINE of SQL code. Do not skip any lines. Even blank lines or simple statements need detailed analysis.
 
 IMPORTANT: Always return a valid JSON object with the exact structure below. Do not include any text outside the JSON.
 
@@ -771,7 +1234,16 @@ SPECIFIC SQL ELEMENTS TO ANALYZE:
 - Data types: appropriateness, storage implications
 - Constraints: primary keys, foreign keys, check constraints
 
-Provide both a cleaned version (proper SQL formatting) and refactored version (with performance improvements).`;
+Provide both a cleaned version (proper SQL formatting) and refactored version (with performance improvements).
+
+EXAMPLE OF DETAILED SQL LINE ANALYSIS:
+For a line like: "WHERE PH.PH_ADR_ID (+) = ADR.ADR_ID"
+Your explanation should be: "Oracle-specific outer join syntax using (+) operator. This creates a LEFT OUTER JOIN where all records from ADR (ADDRESSES) table are included, even if there's no matching record in PH (PHONES) table. The (+) on the left side means 'include nulls from the left table when no match exists'."
+
+For a line like: "SELECT XMLELEMENT("TOPMOSTSUBFARS","
+Your explanation should be: "SQL/XML function XMLELEMENT creates an XML element with the tag name 'TOPMOSTSUBFARS'. This is part of Oracle's SQL/XML functionality for generating XML content from relational data. The function takes an element name and content to create structured XML output."
+
+NEVER give generic responses like 'Consider adding comments for clarity'. Always provide specific, technical SQL explanations.`;
     } else {
       systemPrompt = `You are an expert code reviewer, educator, and code formatter. Analyze the provided ${language} code and provide comprehensive feedback based on the user's request.
 
@@ -829,7 +1301,50 @@ ANALYSIS REQUIREMENTS:
 Provide both a cleaned version (proper formatting) and refactored version (with improvements).`;
     }
 
-    const userPrompt = `${prompt}
+    // Create enhanced user prompt for SQL
+    let userPrompt;
+    if (language === 'sql') {
+      userPrompt = `MANDATORY REQUIREMENT: Provide detailed, technical SQL analysis for EVERY SINGLE LINE regardless of user request.
+
+USER REQUEST: ${prompt}
+
+CRITICAL INSTRUCTIONS FOR SQL ANALYSIS:
+- ALWAYS provide detailed explanations and suggestions for every line
+- User requests are ADDITIONAL to the mandatory line-by-line analysis
+- For each line, explain:
+  * What SQL feature/function is being used
+  * How it works technically  
+  * Performance implications
+  * Potential optimizations
+  * Security considerations
+  * Database-specific features
+
+DO NOT use generic phrases like "Consider adding comments for clarity". Instead, provide specific SQL technical details.
+
+REMEMBER: You must analyze EVERY SINGLE LINE of the SQL code below. Count the lines and ensure your lineAnalysis array has an entry for each line number from 1 to the total number of lines.
+
+SQL Code to analyze (${code.split('\n').length} lines total):
+\`\`\`sql
+${code}
+\`\`\`
+
+EXAMPLES OF REQUIRED DETAILED ANALYSIS:
+
+For "SELECT XMLELEMENT(\"TOPMOSTSUBFARS\",":
+- Explanation: "SQL/XML function XMLELEMENT creates an XML element with the tag name 'TOPMOSTSUBFARS'. This is Oracle's SQL/XML functionality for generating XML content from relational data. The function takes an element name as the first parameter and content as subsequent parameters to create structured XML output."
+- Suggestions: ["Complete the XMLELEMENT function with proper closing syntax and content parameters", "Consider using XMLSerializer for complex XML generation", "Ensure proper XML namespace handling if needed", "Add proper XML content parameters after the element name"]
+
+For "WHERE PH.PH_ADR_ID (+) = ADR.ADR_ID":
+- Explanation: "Oracle-specific outer join syntax using (+) operator. This creates a LEFT OUTER JOIN where all records from ADR (ADDRESSES) table are included, even if there's no matching record in PH (PHONES) table. The (+) on the left side means 'include nulls from the left table when no match exists'."
+- Suggestions: ["Replace Oracle-specific (+) syntax with standard LEFT JOIN for better portability", "Use explicit JOIN syntax: 'FROM ADDRESSES ADR LEFT JOIN PHONES PH ON PH.PH_ADR_ID = ADR.ADR_ID'", "Consider adding indexes on PH_ADR_ID and ADR_ID for better performance"]
+
+For "FROM PHONES PH, ADDRESSES ADR":
+- Explanation: "Old-style comma-separated table join syntax creating a Cartesian product between PHONES and ADDRESSES tables. This syntax is deprecated and can be dangerous as it creates all possible combinations of rows from both tables unless properly filtered in the WHERE clause."
+- Suggestions: ["Replace comma joins with explicit JOIN syntax for better readability", "Use INNER JOIN or LEFT JOIN to make join intentions clear", "This syntax can create performance issues with large datasets", "Consider table aliases are good practice (PH, ADR)"]
+
+MANDATORY: Every line must have detailed technical explanations and specific suggestions, not generic advice.`;
+    } else {
+      userPrompt = `${prompt}
 
 REMEMBER: You must analyze EVERY SINGLE LINE of the code below. Count the lines and ensure your lineAnalysis array has an entry for each line number from 1 to the total number of lines.
 
@@ -837,7 +1352,14 @@ Code to analyze (${code.split('\n').length} lines total):
 \`\`\`${language}
 ${code}
 \`\`\``;
+    }
 
+    console.log(`Sending ${language} analysis request to ${model}`);
+    if (language === 'sql') {
+      console.log('SQL-specific analysis enabled');
+      console.log('Sample SQL code being analyzed:', code.substring(0, 100) + '...');
+    }
+    
     const response = await axios.post(`${process.env.OLLAMA_URL || 'http://localhost:11434'}/api/generate`, {
       model: model,
       prompt: `${systemPrompt}\n\nUser Request: ${userPrompt}`,
@@ -846,7 +1368,7 @@ ${code}
         temperature: 0.1,  // Lower temperature for more consistent analysis
         top_p: 0.8,
         top_k: 20,
-        num_predict: 3072  // Increased for longer responses
+        num_predict: 4096  // Increased for longer responses
       }
     });
 
@@ -880,33 +1402,41 @@ ${code}
     const lines = code.split('\n'); // Keep ALL lines including empty ones
     const lineAnalysis = lines.map((line, index) => {
       const trimmedLine = line.trim();
+      
+      if (trimmedLine === '') {
+        return {
+          lineNumber: index + 1,
+          originalCode: line,
+          explanation: "Empty line - provides visual separation and code structure",
+          suggestions: ["Empty lines help with code readability"],
+          severity: "info",
+          category: "structure"
+        };
+      }
+      
+      // Enhanced SQL-specific analysis for fallback
+      if (language === 'sql') {
+        return analyzeSQLLine(trimmedLine, index + 1, line);
+      }
+      
+      // Generic analysis for other languages
       return {
         lineNumber: index + 1,
-        originalCode: line, // Keep original formatting
-        explanation: trimmedLine === '' ? 
-          "Empty line - provides visual separation and code structure" : 
-          `This line contains: ${trimmedLine}`,
-        suggestions: trimmedLine === '' ? 
-          ["Empty lines help with code readability"] : 
-          ["Consider adding comments for clarity"],
+        originalCode: line,
+        explanation: `This line contains: ${trimmedLine}`,
+        suggestions: ["Consider adding comments for clarity"],
         severity: "info",
-        category: trimmedLine === '' ? "structure" : "readability"
+        category: "readability"
       };
     });
 
-    return {
+    // Create language-specific fallback response
+    const fallbackResponse = {
       language: language,
       overview: `This ${language} code has been analyzed. ${responseText.slice(0, 200)}...`,
       lineAnalysis: lineAnalysis,
-      overallSuggestions: [
-        "Consider adding comments to improve code readability",
-        "Review variable naming conventions",
-        "Add error handling where appropriate"
-      ],
       cleanedCode: code,
       refactoredCode: code,
-      securityIssues: [],
-      performanceIssues: [],
       codeQuality: {
         readabilityScore: 7,
         maintainabilityScore: 7,
@@ -914,6 +1444,47 @@ ${code}
         securityScore: 8
       }
     };
+
+    // Add SQL-specific details
+    if (language === 'sql') {
+      fallbackResponse.overallSuggestions = [
+        "Consider using explicit JOIN syntax instead of comma-separated tables",
+        "Add appropriate indexes on frequently queried columns",
+        "Review query performance and consider optimization",
+        "Ensure proper error handling and transaction management",
+        "Use parameterized queries to prevent SQL injection"
+      ];
+      fallbackResponse.securityIssues = [
+        "Review for potential SQL injection vulnerabilities",
+        "Ensure proper input validation and sanitization",
+        "Consider using stored procedures for complex operations"
+      ];
+      fallbackResponse.performanceIssues = [
+        "Review index usage and consider adding missing indexes",
+        "Optimize JOIN operations and avoid Cartesian products",
+        "Consider query execution plan optimization"
+      ];
+      fallbackResponse.sqlSpecificAnalysis = {
+        queryType: detectSQLQueryType(code),
+        tablesUsed: extractTableNames(code),
+        joinTypes: extractJoinTypes(code),
+        functions: extractSQLFunctions(code),
+        indexRecommendations: generateIndexRecommendations(code),
+        queryComplexity: assessQueryComplexity(code),
+        estimatedRows: "Unknown - depends on data volume",
+        databaseDialect: detectDatabaseDialect(code)
+      };
+    } else {
+      fallbackResponse.overallSuggestions = [
+        "Consider adding comments to improve code readability",
+        "Review variable naming conventions",
+        "Add error handling where appropriate"
+      ];
+      fallbackResponse.securityIssues = [];
+      fallbackResponse.performanceIssues = [];
+    }
+
+    return fallbackResponse;
 
   } catch (error) {
     console.error('LLM Analysis Error:', error);
