@@ -1,0 +1,37 @@
+{
+  "name": "code-analyzer",
+  "version": "1.0.0",
+  "description": "Full-stack application for extracting and analyzing code from images using OCR and LLM",
+  "main": "index.js",
+  "scripts": {
+    "install-all": "npm run install-backend && npm run install-frontend",
+    "install-backend": "cd backend && npm install",
+    "install-frontend": "cd frontend && npm install",
+    "start": "npm run start-backend & npm run start-frontend",
+    "start-backend": "cd backend && npm run dev",
+    "start-frontend": "cd frontend && npm start",
+    "build": "cd frontend && npm run build",
+    "test": "npm run test-backend && npm run test-frontend",
+    "test-backend": "cd backend && npm test",
+    "test-frontend": "cd frontend && npm test"
+  },
+  "keywords": [
+    "ocr",
+    "llm",
+    "code-analysis",
+    "angular",
+    "nodejs",
+    "tesseract",
+    "ollama"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/code-analyzer.git"
+  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ]
+}

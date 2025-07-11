@@ -1,0 +1,338 @@
+.analyzer-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+  
+  .upload-card, .prompt-card, .results-card, .history-card {
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+  }
+  
+  .drop-zone {
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #fafafa;
+    
+    &:hover, &.dragover {
+      border-color: #3f51b5;
+      background: #f0f0ff;
+    }
+    
+    .upload-icon {
+      font-size: 3rem;
+      color: #999;
+      margin-bottom: 1rem;
+    }
+    
+    .upload-text {
+      font-size: 1.1rem;
+      color: #666;
+      margin-bottom: 0.5rem;
+    }
+    
+    .upload-hint {
+      font-size: 0.9rem;
+      color: #999;
+    }
+  }
+  
+  .image-preview {
+    margin-top: 1rem;
+    text-align: center;
+    
+    img {
+      max-width: 100%;
+      max-height: 300px;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+  }
+  
+  .full-width {
+    width: 100%;
+  }
+  
+  .prompt-templates {
+    margin-top: 1rem;
+    
+    mat-chip {
+      margin: 0.25rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      
+      &:hover {
+        background-color: #e3f2fd;
+      }
+      
+      &.selected {
+        background-color: #3f51b5;
+        color: white;
+      }
+    }
+  }
+  
+  .action-section {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    
+    .analyze-button {
+      font-size: 1.1rem;
+      padding: 0.75rem 2rem;
+    }
+  }
+  
+  .loading-section {
+    text-align: center;
+    padding: 2rem;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    
+    p {
+      margin-top: 1rem;
+      font-size: 1.1rem;
+      color: #666;
+    }
+  }
+  
+  .results-section {
+    .cache-indicator {
+      font-size: 0.8rem;
+      color: #666;
+      background: #f0f0f0;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      margin-left: 0.5rem;
+    }
+    
+    .tab-content {
+      padding: 1rem 0;
+    }
+    
+    .overview-section {
+      background: #f8f9fa;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      
+      h3 {
+        margin-top: 0;
+        color: #3f51b5;
+      }
+    }
+    
+    .security-panel, .performance-panel {
+      margin-top: 1rem;
+      
+      .security-issue {
+        color: #d32f2f;
+        margin: 0.5rem 0;
+      }
+      
+      .performance-issue {
+        color: #f57c00;
+        margin: 0.5rem 0;
+      }
+    }
+    
+    .code-analysis-section {
+      .code-display {
+        background: #1e1e1e;
+        border-radius: 8px;
+        overflow: hidden;
+        margin: 1rem 0;
+        
+        .code-header {
+          background: #2d2d2d;
+          color: white;
+          padding: 0.5rem 1rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 0.9rem;
+        }
+        
+        .code-content {
+          padding: 1rem;
+          max-height: 600px;
+          overflow-y: auto;
+          
+          .code-line-group {
+            margin-bottom: 1rem;
+            
+            .code-line {
+              display: flex;
+              align-items: flex-start;
+              
+              .line-number {
+                min-width: 3rem;
+                color: #666;
+                font-size: 0.9rem;
+                padding-right: 1rem;
+                user-select: none;
+              }
+              
+              .line-content {
+                flex: 1;
+                font-family: 'Courier New', monospace;
+                color: #f8f8f2;
+                white-space: pre-wrap;
+                word-break: break-word;
+              }
+            }
+            
+            .line-analysis {
+              margin-left: 3rem;
+              margin-top: 0.5rem;
+              padding: 0.75rem;
+              background: rgba(63, 81, 181, 0.1);
+              border-left: 3px solid #3f51b5;
+              border-radius: 4px;
+              
+              .explanation {
+                display: flex;
+                align-items: flex-start;
+                gap: 0.5rem;
+                margin-bottom: 0.5rem;
+                
+                mat-icon {
+                  font-size: 1.2rem;
+                  width: 1.2rem;
+                  height: 1.2rem;
+                }
+              }
+              
+              .suggestions {
+                margin-top: 0.5rem;
+                
+                h4 {
+                  margin: 0.5rem 0;
+                  font-size: 0.9rem;
+                  color: #3f51b5;
+                }
+                
+                ul {
+                  margin: 0;
+                  padding-left: 1rem;
+                  
+                  li {
+                    margin: 0.25rem 0;
+                    font-size: 0.9rem;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    .refactored-section {
+      .code-display {
+        background: #1e1e1e;
+        border-radius: 8px;
+        overflow: hidden;
+        
+        .code-content {
+          padding: 1rem;
+          max-height: 600px;
+          overflow-y: auto;
+          
+          pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            
+            code {
+              font-family: 'Courier New', monospace;
+              color: #f8f8f2;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  .history-card {
+    .history-list {
+      max-height: 400px;
+      overflow-y: auto;
+      
+      mat-expansion-panel {
+        margin-bottom: 0.5rem;
+        
+        .history-item-content {
+          padding: 1rem 0;
+          
+          p {
+            margin-bottom: 1rem;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .analyzer-container {
+    padding: 0.5rem;
+    
+    .upload-card, .prompt-card, .results-card, .history-card {
+      margin-bottom: 1rem;
+    }
+    
+    .drop-zone {
+      padding: 1rem;
+      
+      .upload-icon {
+        font-size: 2rem;
+      }
+    }
+    
+    .action-section {
+      flex-direction: column;
+      
+      .analyze-button {
+        width: 100%;
+      }
+    }
+    
+    .results-section {
+      .code-analysis-section {
+        .code-display {
+          .code-content {
+            padding: 0.5rem;
+            
+            .code-line-group {
+              .line-analysis {
+                margin-left: 1rem;
+                padding: 0.5rem;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Custom Angular Material overrides
+.mat-mdc-snack-bar-container {
+  &.success-snackbar {
+    --mdc-snackbar-container-color: #4caf50;
+    --mdc-snackbar-supporting-text-color: white;
+  }
+  
+  &.error-snackbar {
+    --mdc-snackbar-container-color: #f44336;
+    --mdc-snackbar-supporting-text-color: white;
+  }
+}
