@@ -8,9 +8,14 @@
 
 ### 1. Install Ollama Models
 ```bash
-ollama pull codellama:13b
-ollama pull deepseek-coder:6.7b
-ollama pull phi3:3.8b
+# Essential models (choose based on your needs)
+ollama pull codellama:13b    # Best for code analysis (recommended)
+ollama pull phi3:3.8b        # Lightweight, fast responses
+ollama pull llama3:8b        # Good general purpose model
+
+# Optional additional models
+ollama pull codellama:7b     # Smaller version of CodeLlama
+ollama pull llama2:7b        # Alternative general purpose model
 ```
 
 ### 2. Start Backend Server

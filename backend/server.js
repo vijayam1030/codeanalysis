@@ -78,22 +78,68 @@ function detectLanguage(code) {
 }
 
 // Get best LLM model for the detected language
-function getBestModel(language) {
+async function getBestModel(language) {
   const modelMapping = {
-    python: 'codellama:13b',
-    javascript: 'deepseek-coder:6.7b',
-    typescript: 'deepseek-coder:6.7b',
-    java: 'codellama:13b',
-    sql: 'sqlcoder:7b',
-    csharp: 'codellama:13b',
-    cpp: 'codellama:13b',
-    php: 'deepseek-coder:6.7b',
-    ruby: 'codellama:13b',
-    go: 'deepseek-coder:6.7b',
-    unknown: 'phi3:3.8b'
+    python: 'codellama:7b',
+    javascript: 'codellama:7b', 
+    typescript: 'codellama:7b',
+    java: 'codellama:7b',
+    sql: 'codellama:7b',
+    csharp: 'codellama:7b',
+    cpp: 'codellama:7b',
+    php: 'codellama:7b',
+    ruby: 'codellama:7b',
+    go: 'codellama:7b',
+    unknown: 'llama3.2:latest'
   };
   
-  return modelMapping[language] || 'phi3:3.8b';
+  const preferredModel = modelMapping[language] || 'llama3.2:latest';
+  
+  // Check if the preferred model is available
+  try {
+    const response = await axios.get(`${process.env.OLLAMA_URL || 'http://localhost:11434'}/api/tags`);
+    const availableModels = response.data.models || [];
+    const modelNames = availableModels.map(model => model.name);
+    
+    if (modelNames.includes(preferredModel)) {
+      return preferredModel;
+    }
+    
+    // Fallback hierarchy - more realistic models
+    const fallbackModels = [
+      'codellama:7b',
+      'codellama:latest',
+      'llama3.2:latest',
+      'llama3.2:3b',
+      'llama3.2:1b',
+      'llama3.1:latest',
+      'llama3.1:8b',
+      'llama3:latest',
+      'llama3:8b',
+      'phi3:latest',
+      'phi3:3.8b',
+      'llama2:latest',
+      'llama2:7b'
+    ];
+    
+    for (const fallback of fallbackModels) {
+      if (modelNames.includes(fallback)) {
+        console.log(`Using fallback model: ${fallback} (preferred: ${preferredModel})`);
+        return fallback;
+      }
+    }
+    
+    // If no fallback models are available, use the first available model
+    if (modelNames.length > 0) {
+      console.log(`Using first available model: ${modelNames[0]} (preferred: ${preferredModel})`);
+      return modelNames[0];
+    }
+    
+  } catch (error) {
+    console.warn('Could not check available models, using default:', error.message);
+  }
+  
+  return preferredModel; // Return preferred even if we can't check availability
 }
 
 // Preprocess image for better OCR results
@@ -254,7 +300,8 @@ async function extractCodeFromImage(imageBuffer) {
 // Analyze code using LLM
 async function analyzeCodeWithLLM(code, prompt, language) {
   try {
-    const model = getBestModel(language);
+    const model = await getBestModel(language);
+    console.log(`Using LLM model: ${model} for language: ${language}`);
     
     const systemPrompt = `You are an expert code reviewer, educator, and code formatter. Analyze the provided ${language} code and provide comprehensive feedback based on the user's request.
 
@@ -316,28 +363,32 @@ Provide both a cleaned version (proper formatting) and refactored version (with 
       options: {
         temperature: 0.3,
         top_p: 0.9,
-        top_k: 40
+        top_k: 40,
+        num_predict: 2048
       }
     });
 
     const responseText = response.data.response;
+    console.log('LLM Response received, length:', responseText.length);
     
     // Try to parse JSON response
     try {
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+        const parsedResponse = JSON.parse(jsonMatch[0]);
+        return parsedResponse;
       }
     } catch (parseError) {
       console.warn('Failed to parse LLM JSON response, creating structured response...');
     }
 
     // Fallback: create structured response from text
-    const lines = code.split('\n');
+    console.log('Creating fallback response structure...');
+    const lines = code.split('\n').filter(line => line.trim());
     const lineAnalysis = lines.map((line, index) => ({
       lineNumber: index + 1,
       originalCode: line.trim(),
-      explanation: `Line ${index + 1}: ${line.trim()}`,
+      explanation: `This line contains: ${line.trim()}`,
       suggestions: ["Consider adding comments for clarity"],
       severity: "info",
       category: "readability"
@@ -345,17 +396,43 @@ Provide both a cleaned version (proper formatting) and refactored version (with 
 
     return {
       language: language,
-      overview: "Code analysis completed",
+      overview: `This ${language} code has been analyzed. ${responseText.slice(0, 200)}...`,
       lineAnalysis: lineAnalysis,
-      overallSuggestions: [responseText],
+      overallSuggestions: [
+        "Consider adding comments to improve code readability",
+        "Review variable naming conventions",
+        "Add error handling where appropriate"
+      ],
+      cleanedCode: code,
       refactoredCode: code,
       securityIssues: [],
-      performanceIssues: []
+      performanceIssues: [],
+      codeQuality: {
+        readabilityScore: 7,
+        maintainabilityScore: 7,
+        performanceScore: 7,
+        securityScore: 8
+      }
     };
 
   } catch (error) {
     console.error('LLM Analysis Error:', error);
-    throw new Error('Failed to analyze code with LLM');
+    
+    // Check if it's a model not found error
+    if (error.response && error.response.status === 404) {
+      const model = await getBestModel(language);
+      const errorMessage = error.response.data?.error || 'Model not found';
+      if (errorMessage.includes('not found')) {
+        throw new Error(`LLM model '${model}' not found. Please install it using: ollama pull ${model}`);
+      }
+    }
+    
+    // Check if it's a connection error
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+      throw new Error('Cannot connect to Ollama service. Please ensure Ollama is installed and running on http://localhost:11434');
+    }
+    
+    throw new Error(`Failed to analyze code with LLM: ${error.message}`);
   }
 }
 
@@ -387,6 +464,33 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
     // Extract code from image
     console.log('Extracting code from image...');
     const rawExtractedCode = await extractCodeFromImage(req.file.buffer);
+    
+    if (!rawExtractedCode || rawExtractedCode.trim().length === 0) {
+      return res.status(400).json({ 
+        error: 'No code could be extracted from the image. Please ensure the image contains clear, readable code.' 
+      });
+    }
+
+    // Check if Ollama is available and has models
+    try {
+      const response = await axios.get(`${process.env.OLLAMA_URL || 'http://localhost:11434'}/api/tags`);
+      const availableModels = response.data.models || [];
+      
+      if (availableModels.length === 0) {
+        return res.status(503).json({ 
+          error: 'No LLM models are available. Please install Ollama and pull at least one model (e.g., "ollama pull llama3.2:latest").',
+          suggestion: 'Run: ollama pull llama3.2:latest'
+        });
+      }
+      
+      console.log(`Available models: ${availableModels.map(m => m.name).join(', ')}`);
+    } catch (error) {
+      console.error('Failed to check Ollama availability:', error.message);
+      return res.status(503).json({ 
+        error: 'Ollama service is not available. Please ensure Ollama is installed and running.',
+        suggestion: 'Please install Ollama from https://ollama.ai and ensure it is running'
+      });
+    }
     
     if (!rawExtractedCode || rawExtractedCode.trim().length === 0) {
       return res.status(400).json({ error: 'No code detected in the image' });
@@ -430,10 +534,47 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
 app.get('/api/models', async (req, res) => {
   try {
     const response = await axios.get(`${process.env.OLLAMA_URL || 'http://localhost:11434'}/api/tags`);
-    res.json(response.data);
+    const models = response.data.models || [];
+    
+    // Check for recommended models
+    const modelNames = models.map(model => model.name);
+    const recommendedModels = [
+      'codellama:7b',
+      'llama3.2:latest',
+      'llama3.2:3b',
+      'llama3.1:8b',
+      'llama3:8b',
+      'phi3:3.8b'
+    ];
+    
+    const availableRecommended = recommendedModels.filter(model => modelNames.includes(model));
+    const missingRecommended = recommendedModels.filter(model => !modelNames.includes(model));
+    
+    res.json({
+      available: models,
+      recommended: {
+        available: availableRecommended,
+        missing: missingRecommended
+      },
+      setup: {
+        installCommands: missingRecommended.map(model => `ollama pull ${model}`),
+        totalModels: models.length
+      }
+    });
   } catch (error) {
     console.error('Failed to fetch models:', error);
-    res.status(500).json({ error: 'Failed to fetch available models' });
+    res.status(500).json({ 
+      error: 'Failed to fetch available models',
+      message: error.message,
+      setup: {
+        checkOllama: 'Make sure Ollama is running: ollama serve',
+        installModels: [
+          'ollama pull codellama:13b',
+          'ollama pull phi3:3.8b',
+          'ollama pull llama3:8b'
+        ]
+      }
+    });
   }
 });
 

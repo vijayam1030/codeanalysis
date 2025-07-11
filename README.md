@@ -44,26 +44,118 @@ A full-stack web application that extracts code from images using OCR and provid
 
 ### AI/ML
 - **Ollama**: Local LLM runtime
-- **CodeLlama**: Code-specific language model
-- **DeepSeek Coder**: Advanced code analysis
-- **Phi3**: Lightweight general-purpose model
+- **CodeLlama 7B**: Code-specific language model (primary)
+- **Llama 3.2**: General-purpose model with code capabilities
+- **Phi3**: Lightweight alternative model
 
-## 📦 Installation & Setup
+## 📋 Prerequisites
 
-### Prerequisites
-- Node.js (v18 or higher)
-- npm or yarn
-- Ollama installed locally
+Before installing, ensure you have:
+- **Node.js** (v18 or higher)
+- **npm** (v9 or higher)
+- **Ollama** installed and running
+
+### Installing Ollama
+
+1. **Download Ollama** from [https://ollama.ai](https://ollama.ai)
+2. **Install** following the platform-specific instructions
+3. **Verify installation**: Open terminal and run `ollama --version`
+
+## 🚀 Quick Start
+
+### 1. Install Ollama Models
+
+The application requires at least one LLM model. Run the installation script:
+
+**Windows:**
+```bash
+cd backend
+install-models.bat
+```
+
+**Linux/Mac:**
+```bash
+cd backend
+./install-models.sh
+```
+
+**Manual Installation:**
+```bash
+# Primary model (best for code analysis)
+ollama pull codellama:7b
+
+# General purpose model (fallback)
+ollama pull llama3.2:latest
+
+# Lightweight model (for slower systems)
+ollama pull llama3.2:3b
+```
+
+### 2. Clone and Setup Project
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd code-analyzer
+
+# Install backend dependencies
+cd backend
+npm install
+
+# Install frontend dependencies  
+cd ../frontend
+npm install
+```
+
+### 3. Configure Environment
+
+Create environment files:
+
+**Backend (.env):**
+```bash
+cd backend
+cp .env.example .env
+```
+
+Edit the `.env` file if needed:
+```env
+PORT=3000
+OLLAMA_URL=http://localhost:11434
+FRONTEND_URL=http://localhost:4200
+```
+
+### 4. Start the Application
+
+**Terminal 1 - Backend:**
+```bash
+cd backend
+npm run dev
+```
+
+**Terminal 2 - Frontend:**
+```bash
+cd frontend  
+npm start
+```
+
+### 5. Access the Application
+
+Open your browser and navigate to:
+- **Frontend**: http://localhost:4200
+- **Backend API**: http://localhost:3000
+- **Health Check**: http://localhost:3000/api/health
+
+## 🎯 Usage
 
 ### 1. Install Ollama and Models
 ```bash
 # Install Ollama (visit https://ollama.ai for OS-specific instructions)
 curl -fsSL https://ollama.ai/install.sh | sh
 
-# Pull recommended models
-ollama pull codellama:13b
-ollama pull deepseek-coder:6.7b
-ollama pull phi3:3.8b
+# Pull recommended models (start with these)
+ollama pull codellama:13b    # Primary code analysis model
+ollama pull phi3:3.8b        # Fast, lightweight model
+ollama pull llama3:8b        # Good general purpose alternative
 ```
 
 ### 2. Clone and Setup Backend
@@ -135,7 +227,52 @@ OLLAMA_URL=http://localhost:11434
 - "Identify security vulnerabilities in this code"
 - "Convert this code to a different language"
 
-## 🚀 API Endpoints
+## � Troubleshooting
+
+### Common Issues
+
+#### "No LLM models are available"
+- **Solution**: Install Ollama models using the installation script
+- **Command**: `cd backend && install-models.bat` (Windows) or `./install-models.sh` (Linux/Mac)
+
+#### "Ollama service is not available"
+- **Check**: Is Ollama running? Open terminal and run `ollama list`
+- **Solution**: Start Ollama service or reinstall from https://ollama.ai
+
+#### "Model 'codellama:7b' not found"
+- **Solution**: Pull the specific model: `ollama pull codellama:7b`
+- **Alternative**: The app will automatically use any available model
+
+#### "Cannot connect to Ollama"
+- **Check**: Ollama URL in `.env` file (default: http://localhost:11434)
+- **Solution**: Ensure Ollama is running on the correct port
+
+#### "OCR extraction failed"
+- **Check**: Image quality - ensure text is clear and readable
+- **Solution**: Use higher resolution images or improve lighting
+
+#### "Frontend not loading"
+- **Check**: Are both backend and frontend servers running?
+- **Solution**: Run `npm run dev` in backend and `npm start` in frontend
+
+#### "CORS errors"
+- **Check**: Frontend URL in backend `.env` file
+- **Solution**: Ensure `FRONTEND_URL=http://localhost:4200` in backend `.env`
+
+### Performance Tips
+
+- **Use smaller models** (llama3.2:3b) for faster analysis on slower machines
+- **Enable caching** - repeated analyses of the same image are much faster
+- **Optimize images** - clear, high-contrast images work best for OCR
+- **Use specific prompts** - detailed requests get better analysis results
+
+### Logs and Debugging
+
+- **Backend logs**: Check terminal running `npm run dev`
+- **Frontend logs**: Open browser developer tools (F12)
+- **Ollama logs**: Run `ollama logs` to see model activity
+
+## �🚀 API Endpoints
 
 ### POST /api/analyze
 Upload and analyze code image

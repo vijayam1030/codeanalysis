@@ -15,8 +15,8 @@ echo "✅ Ollama found"
 # Pull required models
 echo "📥 Pulling LLM models..."
 ollama pull codellama:13b
-ollama pull deepseek-coder:6.7b
 ollama pull phi3:3.8b
+ollama pull llama3:8b
 
 echo "✅ Models downloaded"
 
