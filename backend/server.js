@@ -57,7 +57,63 @@ function detectLanguage(code) {
     javascript: [/function\s+\w+\s*\(/, /const\s+\w+\s*=/, /let\s+\w+\s*=/, /var\s+\w+\s*=/, /console\.log\s*\(/, /=>\s*{/, /require\s*\(/],
     typescript: [/interface\s+\w+/, /type\s+\w+\s*=/, /public\s+\w+/, /private\s+\w+/, /implements\s+\w+/, /<.*>/],
     java: [/public\s+class\s+\w+/, /public\s+static\s+void\s+main/, /System\.out\.print/, /import\s+java\./, /public\s+\w+\s+\w+\s*\(/],
-    sql: [/SELECT\s+.*\s+FROM/, /INSERT\s+INTO/, /UPDATE\s+.*\s+SET/, /DELETE\s+FROM/, /CREATE\s+TABLE/, /ALTER\s+TABLE/i],
+    sql: [
+      /SELECT\s+.*\s+FROM/i, 
+      /INSERT\s+INTO/i, 
+      /UPDATE\s+.*\s+SET/i, 
+      /DELETE\s+FROM/i, 
+      /CREATE\s+TABLE/i, 
+      /ALTER\s+TABLE/i,
+      /WHERE\s+/i,
+      /JOIN\s+/i,
+      /LEFT\s+JOIN/i,
+      /RIGHT\s+JOIN/i,
+      /INNER\s+JOIN/i,
+      /OUTER\s+JOIN/i,
+      /GROUP\s+BY/i,
+      /ORDER\s+BY/i,
+      /HAVING\s+/i,
+      /UNION\s+/i,
+      /DISTINCT\s+/i,
+      /COUNT\s*\(/i,
+      /MAX\s*\(/i,
+      /MIN\s*\(/i,
+      /SUM\s*\(/i,
+      /AVG\s*\(/i,
+      /IS\s+NULL/i,
+      /IS\s+NOT\s+NULL/i,
+      /IN\s*\(/i,
+      /EXISTS\s*\(/i,
+      /LIKE\s+/i,
+      /BETWEEN\s+/i,
+      /\(\+\)/, // Oracle outer join syntax
+      /@@/,     // SQL Server variables
+      /DECLARE\s+/i,
+      /BEGIN\s+/i,
+      /END\s*;/i,
+      /EXEC\s+/i,
+      /PROCEDURE\s+/i,
+      /FUNCTION\s+/i,
+      /TRIGGER\s+/i,
+      /INDEX\s+/i,
+      /PRIMARY\s+KEY/i,
+      /FOREIGN\s+KEY/i,
+      /REFERENCES\s+/i,
+      /CONSTRAINT\s+/i,
+      /NOT\s+NULL/i,
+      /DEFAULT\s+/i,
+      /AUTO_INCREMENT/i,
+      /IDENTITY\s*\(/i,
+      /VARCHAR\s*\(/i,
+      /CHAR\s*\(/i,
+      /INT\s*\(/i,
+      /DECIMAL\s*\(/i,
+      /DATETIME/i,
+      /TIMESTAMP/i,
+      /COMMIT\s*;/i,
+      /ROLLBACK\s*;/i,
+      /TRANSACTION/i
+    ],
     csharp: [/using\s+System/, /public\s+class\s+\w+/, /Console\.WriteLine/, /public\s+static\s+void\s+Main/, /namespace\s+\w+/],
     cpp: [/#include\s*<.*>/, /int\s+main\s*\(/, /std::/, /cout\s*<</, /cin\s*>>/, /using\s+namespace\s+std/],
     php: [/<\?php/, /echo\s+/, /\$\w+\s*=/, /function\s+\w+\s*\(/, /class\s+\w+/],
@@ -312,15 +368,186 @@ function cleanJavaLikeCode(code) {
 
 // SQL code cleaning
 function cleanSQLCode(code) {
-  return code
-    .toUpperCase() // SQL keywords to uppercase
-    .replace(/SELECT\s+/gi, 'SELECT ') // Fix SELECT spacing
-    .replace(/FROM\s+/gi, 'FROM ') // Fix FROM spacing
-    .replace(/WHERE\s+/gi, 'WHERE ') // Fix WHERE spacing
-    .replace(/JOIN\s+/gi, 'JOIN ') // Fix JOIN spacing
-    .replace(/ON\s+/gi, 'ON ') // Fix ON spacing
-    .replace(/ORDER\s+BY\s+/gi, 'ORDER BY ') // Fix ORDER BY spacing
-    .replace(/GROUP\s+BY\s+/gi, 'GROUP BY '); // Fix GROUP BY spacing
+  // Don't convert everything to uppercase - preserve table/column names
+  let cleanedCode = code;
+  
+  // Fix common OCR mistakes in SQL
+  cleanedCode = cleanedCode
+    // Fix common OCR character substitutions
+    .replace(/\bSELECT\b/gi, 'SELECT')
+    .replace(/\bFR0M\b/gi, 'FROM')
+    .replace(/\bFROM\b/gi, 'FROM')
+    .replace(/\bWHERE\b/gi, 'WHERE')
+    .replace(/\bJOIN\b/gi, 'JOIN')
+    .replace(/\bLEFT\s+JOIN\b/gi, 'LEFT JOIN')
+    .replace(/\bRIGHT\s+JOIN\b/gi, 'RIGHT JOIN')
+    .replace(/\bINNER\s+JOIN\b/gi, 'INNER JOIN')
+    .replace(/\bOUTER\s+JOIN\b/gi, 'OUTER JOIN')
+    .replace(/\bFULL\s+JOIN\b/gi, 'FULL JOIN')
+    .replace(/\bGROUP\s+BY\b/gi, 'GROUP BY')
+    .replace(/\bORDER\s+BY\b/gi, 'ORDER BY')
+    .replace(/\bHAVING\b/gi, 'HAVING')
+    .replace(/\bUNION\b/gi, 'UNION')
+    .replace(/\bDISTINCT\b/gi, 'DISTINCT')
+    .replace(/\bCOUNT\b/gi, 'COUNT')
+    .replace(/\bMAX\b/gi, 'MAX')
+    .replace(/\bMIN\b/gi, 'MIN')
+    .replace(/\bSUM\b/gi, 'SUM')
+    .replace(/\bAVG\b/gi, 'AVG')
+    .replace(/\bIS\s+NULL\b/gi, 'IS NULL')
+    .replace(/\bIS\s+NOT\s+NULL\b/gi, 'IS NOT NULL')
+    .replace(/\bNOT\s+NULL\b/gi, 'NOT NULL')
+    .replace(/\bIN\s*\(/gi, 'IN (')
+    .replace(/\bNOT\s+IN\s*\(/gi, 'NOT IN (')
+    .replace(/\bEXISTS\s*\(/gi, 'EXISTS (')
+    .replace(/\bNOT\s+EXISTS\s*\(/gi, 'NOT EXISTS (')
+    .replace(/\bLIKE\b/gi, 'LIKE')
+    .replace(/\bBETWEEN\b/gi, 'BETWEEN')
+    .replace(/\bAND\b/gi, 'AND')
+    .replace(/\bOR\b/gi, 'OR')
+    .replace(/\bNOT\b/gi, 'NOT')
+    .replace(/\bINSERT\s+INTO\b/gi, 'INSERT INTO')
+    .replace(/\bUPDATE\b/gi, 'UPDATE')
+    .replace(/\bSET\b/gi, 'SET')
+    .replace(/\bDELETE\s+FROM\b/gi, 'DELETE FROM')
+    .replace(/\bCREATE\s+TABLE\b/gi, 'CREATE TABLE')
+    .replace(/\bALTER\s+TABLE\b/gi, 'ALTER TABLE')
+    .replace(/\bDROP\s+TABLE\b/gi, 'DROP TABLE')
+    .replace(/\bPRIMARY\s+KEY\b/gi, 'PRIMARY KEY')
+    .replace(/\bFOREIGN\s+KEY\b/gi, 'FOREIGN KEY')
+    .replace(/\bREFERENCES\b/gi, 'REFERENCES')
+    .replace(/\bCONSTRAINT\b/gi, 'CONSTRAINT')
+    .replace(/\bDEFAULT\b/gi, 'DEFAULT')
+    .replace(/\bAUTO_INCREMENT\b/gi, 'AUTO_INCREMENT')
+    .replace(/\bVARCHAR\b/gi, 'VARCHAR')
+    .replace(/\bCHAR\b/gi, 'CHAR')
+    .replace(/\bINT\b/gi, 'INT')
+    .replace(/\bINTEGER\b/gi, 'INTEGER')
+    .replace(/\bDECIMAL\b/gi, 'DECIMAL')
+    .replace(/\bFLOAT\b/gi, 'FLOAT')
+    .replace(/\bDOUBLE\b/gi, 'DOUBLE')
+    .replace(/\bDATETIME\b/gi, 'DATETIME')
+    .replace(/\bTIMESTAMP\b/gi, 'TIMESTAMP')
+    .replace(/\bDATE\b/gi, 'DATE')
+    .replace(/\bTIME\b/gi, 'TIME')
+    .replace(/\bTEXT\b/gi, 'TEXT')
+    .replace(/\bBLOB\b/gi, 'BLOB')
+    .replace(/\bBOOLEAN\b/gi, 'BOOLEAN')
+    .replace(/\bCOMMIT\b/gi, 'COMMIT')
+    .replace(/\bROLLBACK\b/gi, 'ROLLBACK')
+    .replace(/\bTRANSACTION\b/gi, 'TRANSACTION')
+    .replace(/\bBEGIN\b/gi, 'BEGIN')
+    .replace(/\bEND\b/gi, 'END')
+    .replace(/\bDECLARE\b/gi, 'DECLARE')
+    .replace(/\bEXEC\b/gi, 'EXEC')
+    .replace(/\bEXECUTE\b/gi, 'EXECUTE')
+    .replace(/\bPROCEDURE\b/gi, 'PROCEDURE')
+    .replace(/\bFUNCTION\b/gi, 'FUNCTION')
+    .replace(/\bTRIGGER\b/gi, 'TRIGGER')
+    .replace(/\bINDEX\b/gi, 'INDEX')
+    .replace(/\bVIEW\b/gi, 'VIEW')
+    
+    // Fix Oracle-specific syntax
+    .replace(/\(\s*\+\s*\)/g, '(+)') // Oracle outer join syntax
+    .replace(/\bCONNECT\s+BY\b/gi, 'CONNECT BY')
+    .replace(/\bSTART\s+WITH\b/gi, 'START WITH')
+    .replace(/\bPRIOR\b/gi, 'PRIOR')
+    .replace(/\bLEVEL\b/gi, 'LEVEL')
+    .replace(/\bROWNUM\b/gi, 'ROWNUM')
+    .replace(/\bDUAL\b/gi, 'DUAL')
+    .replace(/\bSYSDATE\b/gi, 'SYSDATE')
+    .replace(/\bNVL\b/gi, 'NVL')
+    .replace(/\bNVL2\b/gi, 'NVL2')
+    .replace(/\bCOALESCE\b/gi, 'COALESCE')
+    .replace(/\bDECODE\b/gi, 'DECODE')
+    .replace(/\bCASE\b/gi, 'CASE')
+    .replace(/\bWHEN\b/gi, 'WHEN')
+    .replace(/\bTHEN\b/gi, 'THEN')
+    .replace(/\bELSE\b/gi, 'ELSE')
+    
+    // Fix SQL Server specific syntax
+    .replace(/@@/g, '@@') // Keep SQL Server variables
+    .replace(/\bIDENTITY\b/gi, 'IDENTITY')
+    .replace(/\bSET\s+IDENTITY_INSERT\b/gi, 'SET IDENTITY_INSERT')
+    .replace(/\bTOP\b/gi, 'TOP')
+    .replace(/\bGETDATE\b/gi, 'GETDATE')
+    .replace(/\bISNULL\b/gi, 'ISNULL')
+    .replace(/\bLEN\b/gi, 'LEN')
+    .replace(/\bSUBSTRING\b/gi, 'SUBSTRING')
+    .replace(/\bCHARINDEX\b/gi, 'CHARINDEX')
+    .replace(/\bPATINDEX\b/gi, 'PATINDEX')
+    .replace(/\bREPLACE\b/gi, 'REPLACE')
+    .replace(/\bLTRIM\b/gi, 'LTRIM')
+    .replace(/\bRTRIM\b/gi, 'RTRIM')
+    .replace(/\bTRIM\b/gi, 'TRIM')
+    .replace(/\bUPPER\b/gi, 'UPPER')
+    .replace(/\bLOWER\b/gi, 'LOWER')
+    
+    // Fix MySQL specific syntax
+    .replace(/\bLIMIT\b/gi, 'LIMIT')
+    .replace(/\bOFFSET\b/gi, 'OFFSET')
+    .replace(/\bCONCAT\b/gi, 'CONCAT')
+    .replace(/\bIFNULL\b/gi, 'IFNULL')
+    .replace(/\bCURDATE\b/gi, 'CURDATE')
+    .replace(/\bCURTIME\b/gi, 'CURTIME')
+    .replace(/\bNOW\b/gi, 'NOW')
+    .replace(/\bDATE_ADD\b/gi, 'DATE_ADD')
+    .replace(/\bDATE_SUB\b/gi, 'DATE_SUB')
+    .replace(/\bDATE_FORMAT\b/gi, 'DATE_FORMAT')
+    .replace(/\bSTR_TO_DATE\b/gi, 'STR_TO_DATE')
+    .replace(/\bYEAR\b/gi, 'YEAR')
+    .replace(/\bMONTH\b/gi, 'MONTH')
+    .replace(/\bDAY\b/gi, 'DAY')
+    .replace(/\bHOUR\b/gi, 'HOUR')
+    .replace(/\bMINUTE\b/gi, 'MINUTE')
+    .replace(/\bSECOND\b/gi, 'SECOND')
+    
+    // Fix PostgreSQL specific syntax
+    .replace(/\bLIMIT\b/gi, 'LIMIT')
+    .replace(/\bOFFSET\b/gi, 'OFFSET')
+    .replace(/\bSERIAL\b/gi, 'SERIAL')
+    .replace(/\bBIGSERIAL\b/gi, 'BIGSERIAL')
+    .replace(/\bTEXT\b/gi, 'TEXT')
+    .replace(/\bJSONB\b/gi, 'JSONB')
+    .replace(/\bJSON\b/gi, 'JSON')
+    .replace(/\bARRAY\b/gi, 'ARRAY')
+    .replace(/\bUUID\b/gi, 'UUID')
+    .replace(/\bGEN_RANDOM_UUID\b/gi, 'GEN_RANDOM_UUID')
+    .replace(/\bEXTRACT\b/gi, 'EXTRACT')
+    .replace(/\bINTERVAL\b/gi, 'INTERVAL')
+    .replace(/\bAGE\b/gi, 'AGE')
+    .replace(/\bCURRENT_DATE\b/gi, 'CURRENT_DATE')
+    .replace(/\bCURRENT_TIME\b/gi, 'CURRENT_TIME')
+    .replace(/\bCURRENT_TIMESTAMP\b/gi, 'CURRENT_TIMESTAMP')
+    .replace(/\bLOCALTIME\b/gi, 'LOCALTIME')
+    .replace(/\bLOCALTIMESTAMP\b/gi, 'LOCALTIMESTAMP')
+    
+    // Fix spacing and formatting
+    .replace(/\s*=\s*/g, ' = ')
+    .replace(/\s*<\s*/g, ' < ')
+    .replace(/\s*>\s*/g, ' > ')
+    .replace(/\s*<=\s*/g, ' <= ')
+    .replace(/\s*>=\s*/g, ' >= ')
+    .replace(/\s*<>\s*/g, ' <> ')
+    .replace(/\s*!=\s*/g, ' != ')
+    .replace(/\s*\+\s*/g, ' + ')
+    .replace(/\s*-\s*/g, ' - ')
+    .replace(/\s*\*\s*/g, ' * ')
+    .replace(/\s*\/\s*/g, ' / ')
+    .replace(/\s*%\s*/g, ' % ')
+    .replace(/\s*\(\s*/g, ' (')
+    .replace(/\s*\)\s*/g, ') ')
+    .replace(/\s*,\s*/g, ', ')
+    .replace(/\s*;\s*/g, '; ')
+    .replace(/\s*\.\s*/g, '.')
+    
+    // Fix line breaks and indentation
+    .replace(/\s*\n\s*/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^\s+/gm, '')
+    .replace(/\s+$/gm, '');
+    
+  return cleanedCode;
 }
 
 // Generic code cleaning
@@ -461,7 +688,92 @@ async function analyzeCodeWithLLM(code, prompt, language) {
     const model = await getBestModel(language);
     console.log(`Using LLM model: ${model} for language: ${language}`);
     
-    const systemPrompt = `You are an expert code reviewer, educator, and code formatter. Analyze the provided ${language} code and provide comprehensive feedback based on the user's request.
+    // Create language-specific system prompt
+    let systemPrompt;
+    if (language === 'sql') {
+      systemPrompt = `You are an expert SQL database developer, performance tuner, and security analyst. Analyze the provided SQL code and provide comprehensive feedback based on the user's request.
+
+CRITICAL REQUIREMENT: You MUST analyze EVERY SINGLE LINE of SQL code. Do not skip any lines. Even blank lines or simple statements need analysis.
+
+IMPORTANT: Always return a valid JSON object with the exact structure below. Do not include any text outside the JSON.
+
+{
+  "language": "sql",
+  "overview": "Brief overview of what the SQL query does, its purpose, and database operations",
+  "lineAnalysis": [
+    {
+      "lineNumber": 1,
+      "originalCode": "exact original line of SQL code (including if it's blank or whitespace)",
+      "explanation": "detailed explanation of what this SQL line does, including specific SQL concepts, functions, and operations",
+      "suggestions": ["specific SQL improvement suggestion 1", "specific performance optimization suggestion 2"],
+      "severity": "info|warning|error",
+      "category": "performance|readability|security|best-practice|syntax|structure|joins|indexing|normalization"
+    }
+  ],
+  "overallSuggestions": [
+    "Query optimization recommendations",
+    "Index suggestions for better performance", 
+    "SQL best practices and conventions",
+    "Database design improvements"
+  ],
+  "cleanedCode": "properly formatted SQL with correct indentation, capitalized keywords, and proper spacing",
+  "refactoredCode": "optimized SQL query with better performance, proper joins, and improved readability",
+  "securityIssues": [
+    "SQL injection vulnerabilities",
+    "Access control issues",
+    "Data exposure risks"
+  ],
+  "performanceIssues": [
+    "Inefficient JOIN operations", 
+    "Missing index opportunities",
+    "Suboptimal WHERE clause conditions",
+    "N+1 query problems",
+    "Cartesian product risks"
+  ],
+  "sqlSpecificAnalysis": {
+    "queryType": "SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP",
+    "tablesUsed": ["table1", "table2"],
+    "joinTypes": ["INNER JOIN", "LEFT JOIN", "RIGHT JOIN", "FULL JOIN"],
+    "functions": ["COUNT", "MAX", "MIN", "SUM", "AVG"],
+    "indexRecommendations": ["CREATE INDEX idx_name ON table(column)", "Consider composite index on (col1, col2)"],
+    "queryComplexity": "Simple|Medium|Complex",
+    "estimatedRows": "Small (<1K)|Medium (1K-100K)|Large (100K+)",
+    "databaseDialect": "MySQL|PostgreSQL|Oracle|SQL Server|Generic"
+  },
+  "codeQuality": {
+    "readabilityScore": 8,
+    "maintainabilityScore": 7,
+    "performanceScore": 6,
+    "securityScore": 9
+  }
+}
+
+SQL ANALYSIS REQUIREMENTS:
+1. **EVERY LINE**: Analyze each line individually, including keywords, table names, column names, conditions, functions
+2. **SQL-Specific Comments**: Explain JOIN types, WHERE conditions, GROUP BY logic, ORDER BY implications
+3. **Query Performance**: Identify potential performance bottlenecks, missing indexes, inefficient operations
+4. **Security Analysis**: Check for SQL injection risks, privilege escalation, data exposure
+5. **Database Best Practices**: Proper normalization, naming conventions, query optimization
+6. **JOIN Analysis**: Explain different JOIN types and their implications
+7. **Function Usage**: Analyze aggregate functions, window functions, string functions
+8. **Index Recommendations**: Suggest specific indexes for better performance
+9. **Query Optimization**: Provide optimized alternatives for better performance
+
+SPECIFIC SQL ELEMENTS TO ANALYZE:
+- SELECT clause: columns, aliases, functions, calculations
+- FROM clause: tables, views, subqueries
+- WHERE clause: conditions, operators, logic
+- JOIN operations: types, conditions, performance implications
+- GROUP BY: grouping logic, having conditions
+- ORDER BY: sorting implications, performance impact
+- Subqueries: efficiency, alternatives
+- Functions: usage, performance, alternatives
+- Data types: appropriateness, storage implications
+- Constraints: primary keys, foreign keys, check constraints
+
+Provide both a cleaned version (proper SQL formatting) and refactored version (with performance improvements).`;
+    } else {
+      systemPrompt = `You are an expert code reviewer, educator, and code formatter. Analyze the provided ${language} code and provide comprehensive feedback based on the user's request.
 
 CRITICAL REQUIREMENT: You MUST analyze EVERY SINGLE LINE of code. Do not skip any lines. Even blank lines or simple statements need analysis.
 
@@ -515,6 +827,7 @@ ANALYSIS REQUIREMENTS:
 7. **Maintainability**: Code organization and modularity
 
 Provide both a cleaned version (proper formatting) and refactored version (with improvements).`;
+    }
 
     const userPrompt = `${prompt}
 
