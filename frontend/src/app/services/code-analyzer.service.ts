@@ -41,7 +41,7 @@ export interface AnalysisResult {
   providedIn: 'root'
 })
 export class CodeAnalyzerService {
-  private readonly baseUrl = 'http://localhost:3000/api';
+  private readonly baseUrl = 'http://localhost:5000/api';
   private loadingSubject = new BehaviorSubject<boolean>(false);
   private analysisHistorySubject = new BehaviorSubject<AnalysisResult[]>([]);
   
@@ -82,6 +82,10 @@ export class CodeAnalyzerService {
 
   checkHealth(): Observable<any> {
     return this.http.get(`${this.baseUrl}/health`);
+  }
+
+  getTunnelStatus(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/tunnel-status`);
   }
 
   private addToHistory(result: AnalysisResult): void {

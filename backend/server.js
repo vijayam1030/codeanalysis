@@ -1544,7 +1544,9 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
 
     // Check if Ollama is available and has models
     try {
-      const response = await axios.get(`${process.env.OLLAMA_URL || 'http://localhost:11434'}/api/tags`);
+      const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+      console.log(`Connecting to Ollama at: ${ollamaUrl}`);
+      const response = await axios.get(`${ollamaUrl}/api/tags`);
       const availableModels = response.data.models || [];
       
       if (availableModels.length === 0) {
@@ -1557,9 +1559,16 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
       console.log(`Available models: ${availableModels.map(m => m.name).join(', ')}`);
     } catch (error) {
       console.error('Failed to check Ollama availability:', error.message);
+      console.error('Attempted URL:', ollamaUrl);
+      
+      const isRemote = ollamaUrl.includes('trycloudflare.com') || ollamaUrl.includes('https://');
+      
       return res.status(503).json({ 
         error: 'Ollama service is not available. Please ensure Ollama is installed and running.',
-        suggestion: 'Please install Ollama from https://ollama.ai and ensure it is running'
+        suggestion: isRemote 
+          ? 'For remote deployment, ensure Ollama tunnel is running and accessible at: ' + ollamaUrl
+          : 'Please install Ollama from https://ollama.ai and ensure it is running on localhost:11434',
+        ollamaUrl: ollamaUrl
       });
     }
     
@@ -1646,6 +1655,42 @@ app.get('/api/models', async (req, res) => {
         ]
       }
     });
+  }
+});
+
+// Import tunnel reader
+const { getTunnelStatus } = require('./tunnel-reader');
+
+// Tunnel status endpoint
+app.get('/api/tunnel-status', async (req, res) => {
+  try {
+    const tunnelInfo = await getTunnelStatus();
+    res.json(tunnelInfo);
+  } catch (error) {
+    console.error('Error getting tunnel status:', error);
+    
+    // Fallback to basic status
+    const fallbackInfo = {
+      ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
+      isRemote: (process.env.OLLAMA_URL || '').includes('trycloudflare.com'),
+      backendPort: PORT,
+      frontendPort: 4200,
+      tunnels: {
+        ollama: process.env.OLLAMA_URL && process.env.OLLAMA_URL.includes('trycloudflare.com') 
+          ? process.env.OLLAMA_URL 
+          : null,
+        backend: null,
+        frontend: null
+      },
+      shareableUrls: {
+        backend: `http://localhost:${PORT}`,
+        frontend: 'http://localhost:4200'
+      },
+      lastUpdated: new Date().toISOString(),
+      error: 'Could not read tunnel logs'
+    };
+    
+    res.json(fallbackInfo);
   }
 });
 
