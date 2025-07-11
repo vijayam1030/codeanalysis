@@ -7,9 +7,16 @@ export interface CodeAnalysis {
   overview: string;
   lineAnalysis: LineAnalysis[];
   overallSuggestions: string[];
+  cleanedCode?: string;
   refactoredCode?: string;
   securityIssues: string[];
   performanceIssues: string[];
+  codeQuality?: {
+    readabilityScore: number;
+    maintainabilityScore: number;
+    performanceScore: number;
+    securityScore: number;
+  };
 }
 
 export interface LineAnalysis {
@@ -18,11 +25,12 @@ export interface LineAnalysis {
   explanation: string;
   suggestions: string[];
   severity: 'info' | 'warning' | 'error';
-  category: 'performance' | 'readability' | 'security' | 'best-practice';
+  category: 'performance' | 'readability' | 'security' | 'best-practice' | 'syntax';
 }
 
 export interface AnalysisResult {
   extractedCode: string;
+  rawExtractedCode?: string;
   detectedLanguage: string;
   analysis: CodeAnalysis;
   timestamp: string;

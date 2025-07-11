@@ -112,6 +112,119 @@ async function preprocessImage(buffer) {
   }
 }
 
+// Clean and format extracted code
+function cleanExtractedCode(rawText, language) {
+  let cleanedCode = rawText;
+
+  // Remove common OCR artifacts
+  cleanedCode = cleanedCode
+    .replace(/[""]/g, '"')  // Smart quotes to regular quotes
+    .replace(/['']/g, "'")  // Smart apostrophes to regular apostrophes
+    .replace(/…/g, '...')   // Ellipsis to three dots
+    .replace(/—/g, '-')     // Em dash to hyphen
+    .replace(/–/g, '-')     // En dash to hyphen
+    .replace(/\u00A0/g, ' ') // Non-breaking space to regular space
+    .replace(/\u2028/g, '\n') // Line separator to newline
+    .replace(/\u2029/g, '\n') // Paragraph separator to newline
+    .replace(/\s+$/gm, '')   // Remove trailing spaces
+    .replace(/^\s+/gm, '')   // Remove leading spaces (but preserve indentation logic below)
+    .replace(/\r\n/g, '\n')  // Normalize line endings
+    .replace(/\r/g, '\n');   // Normalize line endings
+
+  // Language-specific cleaning
+  switch (language) {
+    case 'python':
+      cleanedCode = cleanPythonCode(cleanedCode);
+      break;
+    case 'javascript':
+    case 'typescript':
+      cleanedCode = cleanJavaScriptCode(cleanedCode);
+      break;
+    case 'java':
+    case 'csharp':
+      cleanedCode = cleanJavaLikeCode(cleanedCode);
+      break;
+    case 'sql':
+      cleanedCode = cleanSQLCode(cleanedCode);
+      break;
+    default:
+      cleanedCode = cleanGenericCode(cleanedCode);
+  }
+
+  return cleanedCode;
+}
+
+// Python-specific code cleaning
+function cleanPythonCode(code) {
+  return code
+    .replace(/;\s*$/gm, '')  // Remove unnecessary semicolons
+    .replace(/\s*:\s*/g, ':') // Fix spacing around colons
+    .replace(/\s*=\s*/g, ' = ') // Fix spacing around assignment
+    .replace(/\s*\(\s*/g, '(') // Fix spacing around parentheses
+    .replace(/\s*\)\s*/g, ')') 
+    .replace(/\s*\[\s*/g, '[') // Fix spacing around brackets
+    .replace(/\s*\]\s*/g, ']')
+    .replace(/def\s+(\w+)\s*\(/g, 'def $1(') // Fix function definitions
+    .replace(/class\s+(\w+)\s*\(/g, 'class $1(') // Fix class definitions
+    .replace(/import\s+(\w+)/g, 'import $1') // Fix imports
+    .replace(/from\s+(\w+)\s+import/g, 'from $1 import');
+}
+
+// JavaScript/TypeScript code cleaning
+function cleanJavaScriptCode(code) {
+  return code
+    .replace(/\s*{\s*/g, ' {\n') // Fix brace spacing
+    .replace(/\s*}\s*/g, '\n}')
+    .replace(/\s*;\s*/g, ';\n') // Fix semicolon spacing
+    .replace(/function\s+(\w+)\s*\(/g, 'function $1(') // Fix function declarations
+    .replace(/const\s+(\w+)\s*=/g, 'const $1 =') // Fix const declarations
+    .replace(/let\s+(\w+)\s*=/g, 'let $1 =') // Fix let declarations
+    .replace(/var\s+(\w+)\s*=/g, 'var $1 =') // Fix var declarations
+    .replace(/if\s*\(/g, 'if (') // Fix if statements
+    .replace(/for\s*\(/g, 'for (') // Fix for loops
+    .replace(/while\s*\(/g, 'while ('); // Fix while loops
+}
+
+// Java/C#-like code cleaning
+function cleanJavaLikeCode(code) {
+  return code
+    .replace(/public\s+class\s+(\w+)/g, 'public class $1') // Fix class declarations
+    .replace(/private\s+(\w+)\s+(\w+)/g, 'private $1 $2') // Fix field declarations
+    .replace(/public\s+(\w+)\s+(\w+)\s*\(/g, 'public $1 $2(') // Fix method declarations
+    .replace(/\s*{\s*/g, ' {\n') // Fix brace spacing
+    .replace(/\s*}\s*/g, '\n}')
+    .replace(/\s*;\s*/g, ';\n') // Fix semicolon spacing
+    .replace(/if\s*\(/g, 'if (') // Fix if statements
+    .replace(/for\s*\(/g, 'for (') // Fix for loops
+    .replace(/while\s*\(/g, 'while ('); // Fix while loops
+}
+
+// SQL code cleaning
+function cleanSQLCode(code) {
+  return code
+    .toUpperCase() // SQL keywords to uppercase
+    .replace(/SELECT\s+/gi, 'SELECT ') // Fix SELECT spacing
+    .replace(/FROM\s+/gi, 'FROM ') // Fix FROM spacing
+    .replace(/WHERE\s+/gi, 'WHERE ') // Fix WHERE spacing
+    .replace(/JOIN\s+/gi, 'JOIN ') // Fix JOIN spacing
+    .replace(/ON\s+/gi, 'ON ') // Fix ON spacing
+    .replace(/ORDER\s+BY\s+/gi, 'ORDER BY ') // Fix ORDER BY spacing
+    .replace(/GROUP\s+BY\s+/gi, 'GROUP BY '); // Fix GROUP BY spacing
+}
+
+// Generic code cleaning
+function cleanGenericCode(code) {
+  return code
+    .replace(/\s*{\s*/g, ' {\n') // Fix brace spacing
+    .replace(/\s*}\s*/g, '\n}')
+    .replace(/\s*;\s*/g, ';\n') // Fix semicolon spacing
+    .replace(/\s*=\s*/g, ' = ') // Fix assignment spacing
+    .replace(/\s*\+\s*/g, ' + ') // Fix operator spacing
+    .replace(/\s*-\s*/g, ' - ')
+    .replace(/\s*\*\s*/g, ' * ')
+    .replace(/\s*\/\s*/g, ' / ');
+}
+
 // Extract code from image using OCR
 async function extractCodeFromImage(imageBuffer) {
   try {
@@ -123,18 +236,15 @@ async function extractCodeFromImage(imageBuffer) {
       tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]().,;:=+-*/<>?!@#$%^&|\\~`"\' \n\t_'
     });
     
-    // Clean up the extracted text
-    const cleanedText = text
+    // Basic cleanup of extracted text
+    const basicCleanup = text
       .split('\n')
       .map(line => line.trim())
       .filter(line => line.length > 0)
       .join('\n')
-      .replace(/\s+/g, ' ')
-      .replace(/([{}()[\];,])/g, '$1\n')
-      .replace(/\n\s*\n/g, '\n')
       .trim();
     
-    return cleanedText;
+    return basicCleanup;
   } catch (error) {
     console.error('OCR Error:', error);
     throw new Error('Failed to extract text from image');
@@ -146,36 +256,56 @@ async function analyzeCodeWithLLM(code, prompt, language) {
   try {
     const model = getBestModel(language);
     
-    const systemPrompt = `You are an expert code reviewer and educator. Analyze the provided ${language} code and provide detailed feedback based on the user's request. 
+    const systemPrompt = `You are an expert code reviewer, educator, and code formatter. Analyze the provided ${language} code and provide comprehensive feedback based on the user's request.
 
-Return your response as a JSON object with the following structure:
+IMPORTANT: Always return a valid JSON object with the exact structure below. Do not include any text outside the JSON.
+
 {
   "language": "${language}",
-  "overview": "Brief overview of what the code does",
+  "overview": "Brief overview of what the code does and its purpose",
   "lineAnalysis": [
     {
       "lineNumber": 1,
-      "originalCode": "original line of code",
-      "explanation": "what this line does",
-      "suggestions": ["improvement suggestion 1", "improvement suggestion 2"],
+      "originalCode": "exact original line of code",
+      "explanation": "clear explanation of what this line does",
+      "suggestions": ["specific improvement suggestion 1", "specific improvement suggestion 2"],
       "severity": "info|warning|error",
-      "category": "performance|readability|security|best-practice"
+      "category": "performance|readability|security|best-practice|syntax"
     }
   ],
-  "overallSuggestions": ["suggestion 1", "suggestion 2"],
-  "refactoredCode": "complete refactored version if requested",
-  "securityIssues": ["security issue 1", "security issue 2"],
-  "performanceIssues": ["performance issue 1", "performance issue 2"]
+  "overallSuggestions": [
+    "Overall code structure improvements",
+    "Best practices recommendations",
+    "Performance optimization suggestions"
+  ],
+  "cleanedCode": "properly formatted and cleaned version of the original code with correct indentation and spacing",
+  "refactoredCode": "improved version with better practices, error handling, and optimizations",
+  "securityIssues": [
+    "Specific security vulnerability 1",
+    "Specific security vulnerability 2"
+  ],
+  "performanceIssues": [
+    "Specific performance bottleneck 1",
+    "Specific performance optimization opportunity 2"
+  ],
+  "codeQuality": {
+    "readabilityScore": 8,
+    "maintainabilityScore": 7,
+    "performanceScore": 6,
+    "securityScore": 9
+  }
 }
 
 Focus on:
-- Code explanation and educational content
-- Performance optimizations
-- Security vulnerabilities
-- Best practices
-- Readability improvements
-- Error handling
-`;
+1. **Code Formatting**: Proper indentation, spacing, and structure
+2. **Best Practices**: Language-specific conventions and patterns
+3. **Performance**: Optimization opportunities and bottlenecks
+4. **Security**: Vulnerabilities and secure coding practices
+5. **Readability**: Clear variable names, comments, and structure
+6. **Error Handling**: Proper exception handling and edge cases
+7. **Maintainability**: Code organization and modularity
+
+Provide both a cleaned version (proper formatting) and refactored version (with improvements).`;
 
     const userPrompt = `${prompt}\n\nCode to analyze:\n\`\`\`${language}\n${code}\n\`\`\``;
 
@@ -256,22 +386,27 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
 
     // Extract code from image
     console.log('Extracting code from image...');
-    const extractedCode = await extractCodeFromImage(req.file.buffer);
+    const rawExtractedCode = await extractCodeFromImage(req.file.buffer);
     
-    if (!extractedCode || extractedCode.trim().length === 0) {
+    if (!rawExtractedCode || rawExtractedCode.trim().length === 0) {
       return res.status(400).json({ error: 'No code detected in the image' });
     }
 
     // Detect programming language
-    const detectedLanguage = detectLanguage(extractedCode);
+    const detectedLanguage = detectLanguage(rawExtractedCode);
     console.log(`Detected language: ${detectedLanguage}`);
+
+    // Clean and format the extracted code based on detected language
+    console.log('Cleaning and formatting extracted code...');
+    const cleanedCode = cleanExtractedCode(rawExtractedCode, detectedLanguage);
 
     // Analyze code with LLM
     console.log('Analyzing code with LLM...');
-    const analysis = await analyzeCodeWithLLM(extractedCode, prompt, detectedLanguage);
+    const analysis = await analyzeCodeWithLLM(cleanedCode, prompt, detectedLanguage);
 
     const result = {
-      extractedCode,
+      extractedCode: cleanedCode,
+      rawExtractedCode: rawExtractedCode, // Keep original for comparison
       detectedLanguage,
       analysis,
       timestamp: new Date().toISOString()
