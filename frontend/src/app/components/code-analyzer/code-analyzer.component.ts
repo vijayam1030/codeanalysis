@@ -152,6 +152,10 @@ import { CodeAnalyzerService, AnalysisResult } from '../../services/code-analyze
                     <mat-icon *ngIf="method.recommended" class="recommended-icon">star</mat-icon>
                   </div>
                   <div class="method-description">{{ method.description }}</div>
+                  <div class="method-model" *ngIf="method.model">
+                    <mat-icon>smart_toy</mat-icon>
+                    {{ method.model }}
+                  </div>
                   <div class="method-stats" *ngIf="method.confidence">
                     <span class="stat">{{ method.confidence }} confidence</span> • 
                     <span class="stat">{{ method.speed }} speed</span> • 
@@ -167,6 +171,66 @@ import { CodeAnalyzerService, AnalysisResult } from '../../services/code-analyze
               </span>
               <span *ngIf="selectedExtractionMethod !== 'llm-vision'">
                 Tesseract OCR methods are free and work offline.
+              </span>
+            </mat-hint>
+          </mat-form-field>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Analysis Method Section -->
+      <mat-card class="analysis-method-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>analytics</mat-icon>
+            Analysis Method
+          </mat-card-title>
+          <mat-card-subtitle>
+            Choose the focus of your code analysis
+          </mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-form-field class="full-width">
+            <mat-label>Analysis Focus</mat-label>
+            <mat-select [(ngModel)]="selectedAnalysisMethod">
+              <mat-option 
+                *ngFor="let method of analysisMethods" 
+                [value]="method.id"
+                [class.recommended-option]="method.recommended"
+              >
+                <div class="analysis-option">
+                  <div class="method-name">
+                    {{ method.name }}
+                    <mat-icon *ngIf="method.recommended" class="recommended-icon">star</mat-icon>
+                  </div>
+                  <div class="method-description">{{ method.description }}</div>
+                  <div class="method-model" *ngIf="method.model">
+                    <mat-icon>psychology</mat-icon>
+                    {{ method.model }}
+                  </div>
+                  <div class="method-stats" *ngIf="method.speed">
+                    <span class="stat">{{ method.speed }} speed</span> • 
+                    <span class="stat">{{ method.accuracy }} accuracy</span> • 
+                    <span class="stat">{{ method.cost }} cost</span>
+                  </div>
+                </div>
+              </mat-option>
+            </mat-select>
+            <mat-hint>
+              <span *ngIf="selectedAnalysisMethod === 'security-focused'" class="analysis-hint">
+                <mat-icon>security</mat-icon>
+                Focus on security vulnerabilities and potential threats.
+              </span>
+              <span *ngIf="selectedAnalysisMethod === 'performance-focused'" class="analysis-hint">
+                <mat-icon>speed</mat-icon>
+                Focus on performance optimization and efficiency improvements.
+              </span>
+              <span *ngIf="selectedAnalysisMethod === 'quick-review'" class="analysis-hint">
+                <mat-icon>fast_forward</mat-icon>
+                Quick overview with basic suggestions for rapid feedback.
+              </span>
+              <span *ngIf="selectedAnalysisMethod === 'comprehensive'" class="analysis-hint">
+                <mat-icon>checklist</mat-icon>
+                Comprehensive analysis covering all aspects of code quality.
               </span>
             </mat-hint>
           </mat-form-field>
@@ -394,7 +458,9 @@ export class CodeAnalyzerComponent implements OnInit, OnDestroy {
   imagePreviews: string[] = [];
   prompt: string = 'Explain this code and provide suggestions for improvement';
   selectedExtractionMethod: string = 'tesseract-standard';
+  selectedAnalysisMethod: string = 'comprehensive';
   extractionMethods: any[] = [];
+  analysisMethods: any[] = [];
   isDragOver = false;
   analysisResult: AnalysisResult | null = null;
   loadingMessage = 'Extracting code from image...';
@@ -425,6 +491,8 @@ export class CodeAnalyzerComponent implements OnInit, OnDestroy {
     this.checkBackendHealth();
     // Load extraction methods
     this.loadExtractionMethods();
+    // Load analysis methods
+    this.loadAnalysisMethods();
   }
 
   ngOnDestroy(): void {
@@ -533,7 +601,7 @@ export class CodeAnalyzerComponent implements OnInit, OnDestroy {
 
     this.loadingMessage = 'Extracting code from image...';
     
-    const subscription = this.codeAnalyzerService.analyzeImage(this.selectedFile, this.prompt, this.selectedExtractionMethod)
+    const subscription = this.codeAnalyzerService.analyzeImage(this.selectedFile, this.prompt, this.selectedExtractionMethod, this.selectedAnalysisMethod)
       .subscribe({
         next: (result: AnalysisResult) => {
           this.analysisResult = result;
@@ -581,6 +649,57 @@ export class CodeAnalyzerComponent implements OnInit, OnDestroy {
         ];
       }
     });
+  }
+
+  private loadAnalysisMethods(): void {
+    // Default analysis methods - could be fetched from backend
+    this.analysisMethods = [
+      {
+        id: 'comprehensive',
+        name: 'Comprehensive Analysis',
+        description: 'Full code analysis including security, performance, and best practices',
+        speed: 'Medium',
+        accuracy: 'High',
+        cost: 'Medium',
+        recommended: true,
+        capabilities: ['Security Scan', 'Performance Check', 'Code Quality', 'Best Practices'],
+        model: 'Llama3.2:1b / CodeLlama:7b',
+        technology: 'Large Language Model'
+      },
+      {
+        id: 'security-focused',
+        name: 'Security-Focused',
+        description: 'Prioritizes security vulnerabilities and potential threats',
+        speed: 'Fast',
+        accuracy: 'High',
+        cost: 'Low',
+        capabilities: ['Security Scan', 'Vulnerability Detection', 'Input Validation'],
+        model: 'Llama3.2:1b / Phi3:3.8b',
+        technology: 'Large Language Model'
+      },
+      {
+        id: 'performance-focused',
+        name: 'Performance-Focused',
+        description: 'Focuses on performance optimization and efficiency',
+        speed: 'Fast',
+        accuracy: 'Medium',
+        cost: 'Low',
+        capabilities: ['Performance Check', 'Optimization', 'Memory Usage'],
+        model: 'Qwen2.5-Coder:1.5b / Llama3.2:1b',
+        technology: 'Large Language Model'
+      },
+      {
+        id: 'quick-review',
+        name: 'Quick Review',
+        description: 'Fast overview with basic suggestions',
+        speed: 'Very Fast',
+        accuracy: 'Medium',
+        cost: 'Very Low',
+        capabilities: ['Basic Analysis', 'Syntax Check'],
+        model: 'TinyLlama:1.1b / SmolLM2',
+        technology: 'Small Language Model'
+      }
+    ];
   }
 
   formatFileSize(bytes: number): string {

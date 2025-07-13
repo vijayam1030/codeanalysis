@@ -42,4 +42,19 @@ export interface ExtractionMethod {
   cost?: string;
   recommended?: boolean;
   requiresVisionModel?: boolean;
+  model?: string;
+  technology?: string;
+}
+
+export interface AnalysisMethod {
+  id: string;
+  name: string;
+  description: string;
+  speed?: string;
+  accuracy?: string;
+  cost?: string;
+  recommended?: boolean;
+  capabilities?: string[];
+  model?: string;
+  technology?: string;
 }

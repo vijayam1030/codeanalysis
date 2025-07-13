@@ -5,7 +5,7 @@
   padding: 1rem; // Provides consistent internal spacing of 16px
   
   // Common card styles applied to all major interface sections
-  .upload-card, .prompt-card, .extraction-method-card, .results-card, .history-card {
+  .upload-card, .prompt-card, .extraction-method-card, .analysis-method-card, .results-card, .history-card {
     margin-bottom: 2rem; // Creates vertical spacing between major sections (32px)
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); // Subtle elevation shadow for depth perception
     border-radius: 8px; // Rounded corners for modern, friendly appearance
@@ -489,6 +489,22 @@
       margin-bottom: 0.25rem;
     }
     
+    .method-model {
+      font-size: 0.85rem;
+      color: #3f51b5;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      
+      mat-icon {
+        font-size: 0.9rem;
+        width: 0.9rem;
+        height: 0.9rem;
+      }
+    }
+    
     .method-stats {
       font-size: 0.8rem;
       color: #888;
@@ -508,6 +524,71 @@
     align-items: center;
     gap: 0.5rem;
     color: #2196f3;
+    font-size: 0.9rem;
+    
+    mat-icon {
+      font-size: 1rem;
+      width: 1rem;
+      height: 1rem;
+    }
+  }
+}
+
+// Analysis method card styling
+.analysis-method-card {
+  .analysis-option {
+    padding: 0.5rem 0;
+    
+    .method-name {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+      
+      .recommended-icon {
+        color: #ffc107;
+        font-size: 1rem;
+      }
+    }
+    
+    .method-description {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 0.25rem;
+    }
+    
+    .method-model {
+      font-size: 0.85rem;
+      color: #9c27b0;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      
+      mat-icon {
+        font-size: 0.9rem;
+        width: 0.9rem;
+        height: 0.9rem;
+      }
+    }
+    
+    .method-stats {
+      font-size: 0.8rem;
+      color: #888;
+      
+      .stat {
+        white-space: nowrap;
+      }
+    }
+  }
+  
+  .analysis-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #666;
     font-size: 0.9rem;
     
     mat-icon {

@@ -29,13 +29,17 @@ export const getExtractionMethods = async (): Promise<ExtractionMethod[]> => {
 export const analyzeImage = async (
   file: File,
   prompt: string,
-  extractionMethod: string
+  extractionMethod: string,
+  analysisMethod?: string
 ): Promise<AnalysisResult> => {
   try {
     const formData = new FormData();
     formData.append('images', file);
     formData.append('prompt', prompt);
     formData.append('extractionMethod', extractionMethod);
+    if (analysisMethod) {
+      formData.append('analysisMethod', analysisMethod);
+    }
 
     const response = await api.post('/analyze', formData, {
       headers: {

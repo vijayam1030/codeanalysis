@@ -1602,16 +1602,33 @@ function detectDatabaseDialect(code) {
 }
 
 // Analyze code using LLM
-async function analyzeCodeWithLLM(code, prompt, language) {
+async function analyzeCodeWithLLM(code, prompt, language, analysisMethod = 'comprehensive') {
   try {
     const model = await getBestModel(language);
     console.log(`Using LLM model: ${model} for language: ${language}`);
     
+    // Create analysis-method-specific system prompt modifiers
+    const getAnalysisModifier = (method) => {
+      switch (method) {
+        case 'security-focused':
+          return 'Focus primarily on security vulnerabilities, input validation, authentication issues, and potential attack vectors. ';
+        case 'performance-focused':
+          return 'Focus primarily on performance optimization, efficiency improvements, memory usage, and runtime optimization. ';
+        case 'quick-review':
+          return 'Provide a brief overview with basic suggestions. Keep analysis concise and focus on major issues only. ';
+        case 'comprehensive':
+        default:
+          return 'Provide a thorough analysis covering all aspects including security, performance, readability, and best practices. ';
+      }
+    };
+
+    const analysisModifier = getAnalysisModifier(analysisMethod);
+
     // Create language-specific system prompt
     let systemPrompt;
     if (language === 'sql') {
-      console.log('Using simplified SQL analysis prompt');
-      systemPrompt = `You are an expert SQL database developer. Analyze the provided SQL code quickly and provide a structured analysis.
+      console.log(`Using SQL analysis prompt with method: ${analysisMethod}`);
+      systemPrompt = `You are an expert SQL database developer. ${analysisModifier}Analyze the provided SQL code and provide a structured analysis.
 
 Return a JSON object with this structure:
 {
@@ -1699,7 +1716,8 @@ Your explanation should be: "SQL/XML function XMLELEMENT creates an XML element 
 
 NEVER give generic responses like 'Consider adding comments for clarity'. Always provide specific, technical SQL explanations.`;
     } else {
-      systemPrompt = `Analyze this ${language} code. Return JSON:
+      console.log(`Using general analysis prompt with method: ${analysisMethod}`);
+      systemPrompt = `You are an expert code analyst. ${analysisModifier}Analyze this ${language} code. Return JSON:
 {
   "language": "${language}",
   "overview": "what the code does",
@@ -1926,11 +1944,12 @@ app.post('/api/analyze', upload.array('images', 10), async (req, res) => {
 
     const { 
       prompt = 'Explain this code and provide suggestions for improvement',
-      extractionMethod = 'tesseract-standard'
+      extractionMethod = 'tesseract-standard',
+      analysisMethod = 'comprehensive'
     } = req.body;
     
-    // Generate cache key including extraction method
-    const cacheKey = `${req.files[0].buffer.toString('base64').slice(0, 50)}_${prompt}_${extractionMethod}`;
+    // Generate cache key including extraction and analysis methods
+    const cacheKey = `${req.files[0].buffer.toString('base64').slice(0, 50)}_${prompt}_${extractionMethod}_${analysisMethod}`;
     
     // Check cache first
     const cachedResult = cache.get(cacheKey);
@@ -1987,9 +2006,9 @@ app.post('/api/analyze', upload.array('images', 10), async (req, res) => {
     const cleanedCode = cleanExtractedCode(rawExtractedCode, detectedLanguage);
 
     // Analyze code with LLM
-    console.log('Analyzing code with LLM...');
+    console.log(`Analyzing code with LLM using method: ${analysisMethod}...`);
     const analysis = await Promise.race([
-      analyzeCodeWithLLM(cleanedCode, prompt, detectedLanguage),
+      analyzeCodeWithLLM(cleanedCode, prompt, detectedLanguage, analysisMethod),
       new Promise((_, reject) => 
         setTimeout(() => reject(new Error('LLM analysis timeout after 30 seconds')), 30000)
       )
@@ -2078,7 +2097,9 @@ app.get('/api/extraction-methods', (req, res) => {
         confidence: 'High',
         speed: 'Medium',
         cost: 'Free',
-        recommended: true
+        recommended: true,
+        model: 'Tesseract.js v5.0.4',
+        technology: 'Traditional OCR'
       },
       {
         id: 'tesseract-standard',
@@ -2087,7 +2108,9 @@ app.get('/api/extraction-methods', (req, res) => {
         type: 'ocr',
         confidence: 'Medium',
         speed: 'Fast',
-        cost: 'Free'
+        cost: 'Free',
+        model: 'Tesseract.js v5.0.4',
+        technology: 'Traditional OCR'
       },
       {
         id: 'tesseract-advanced',
@@ -2096,7 +2119,9 @@ app.get('/api/extraction-methods', (req, res) => {
         type: 'ocr',
         confidence: 'Medium-High',
         speed: 'Medium',
-        cost: 'Free'
+        cost: 'Free',
+        model: 'Tesseract.js v5.0.4',
+        technology: 'Traditional OCR'
       },
       {
         id: 'tesseract-high-contrast',
@@ -2105,7 +2130,9 @@ app.get('/api/extraction-methods', (req, res) => {
         type: 'ocr',
         confidence: 'Medium-High',
         speed: 'Medium',
-        cost: 'Free'
+        cost: 'Free',
+        model: 'Tesseract.js v5.0.4',
+        technology: 'Traditional OCR'
       },
       {
         id: 'llm-vision',
@@ -2115,7 +2142,9 @@ app.get('/api/extraction-methods', (req, res) => {
         confidence: 'Very High',
         speed: 'Slow',
         cost: 'Compute',
-        requiresVisionModel: true
+        requiresVisionModel: true,
+        model: 'Qwen2-VL:2b / Llama3.2-Vision:11b',
+        technology: 'Large Language Model with Vision'
       }
     ];
 

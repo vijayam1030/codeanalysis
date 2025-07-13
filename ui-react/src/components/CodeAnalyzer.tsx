@@ -14,7 +14,7 @@ import ImageUpload from './ImageUpload';
 import AnalysisSettings from './AnalysisSettings';
 import AnalysisResults from './AnalysisResults';
 import BackendStatus from './BackendStatus';
-import type { AnalysisResult, ExtractionMethod } from '../types/types';
+import type { AnalysisResult, ExtractionMethod, AnalysisMethod } from '../types/types';
 import { analyzeImage, checkBackendHealth, getExtractionMethods } from '../services/api';
 
 const CodeAnalyzer: React.FC = () => {
@@ -24,11 +24,14 @@ const CodeAnalyzer: React.FC = () => {
   const [backendHealthy, setBackendHealthy] = useState(false);
   const [extractionMethods, setExtractionMethods] = useState<ExtractionMethod[]>([]);
   const [selectedMethod, setSelectedMethod] = useState('tesseract-standard');
+  const [analysisMethods, setAnalysisMethods] = useState<AnalysisMethod[]>([]);
+  const [selectedAnalysisMethod, setSelectedAnalysisMethod] = useState('comprehensive');
   const [prompt, setPrompt] = useState('Explain this code and provide suggestions for improvement');
 
   useEffect(() => {
     checkHealth();
     loadExtractionMethods();
+    loadAnalysisMethods();
   }, []);
 
   const checkHealth = async () => {
@@ -55,6 +58,58 @@ const CodeAnalyzer: React.FC = () => {
     }
   };
 
+  const loadAnalysisMethods = async () => {
+    // Default analysis methods - could be fetched from backend
+    const defaultMethods: AnalysisMethod[] = [
+      {
+        id: 'comprehensive',
+        name: 'Comprehensive Analysis',
+        description: 'Full code analysis including security, performance, and best practices',
+        speed: 'Medium',
+        accuracy: 'High',
+        cost: 'Medium',
+        recommended: true,
+        capabilities: ['Security Scan', 'Performance Check', 'Code Quality', 'Best Practices'],
+        model: 'Llama3.2:1b / CodeLlama:7b',
+        technology: 'Large Language Model'
+      },
+      {
+        id: 'security-focused',
+        name: 'Security-Focused',
+        description: 'Prioritizes security vulnerabilities and potential threats',
+        speed: 'Fast',
+        accuracy: 'High',
+        cost: 'Low',
+        capabilities: ['Security Scan', 'Vulnerability Detection', 'Input Validation'],
+        model: 'Llama3.2:1b / Phi3:3.8b',
+        technology: 'Large Language Model'
+      },
+      {
+        id: 'performance-focused',
+        name: 'Performance-Focused',
+        description: 'Focuses on performance optimization and efficiency',
+        speed: 'Fast',
+        accuracy: 'Medium',
+        cost: 'Low',
+        capabilities: ['Performance Check', 'Optimization', 'Memory Usage'],
+        model: 'Qwen2.5-Coder:1.5b / Llama3.2:1b',
+        technology: 'Large Language Model'
+      },
+      {
+        id: 'quick-review',
+        name: 'Quick Review',
+        description: 'Fast overview with basic suggestions',
+        speed: 'Very Fast',
+        accuracy: 'Medium',
+        cost: 'Very Low',
+        capabilities: ['Basic Analysis', 'Syntax Check'],
+        model: 'TinyLlama:1.1b / SmolLM2',
+        technology: 'Small Language Model'
+      }
+    ];
+    setAnalysisMethods(defaultMethods);
+  };
+
   const handleAnalyze = async (file: File) => {
     if (!backendHealthy) {
       setError('Backend server is not running. Please check the connection.');
@@ -66,7 +121,7 @@ const CodeAnalyzer: React.FC = () => {
     setAnalysisResult(null);
 
     try {
-      const result = await analyzeImage(file, prompt, selectedMethod);
+      const result = await analyzeImage(file, prompt, selectedMethod, selectedAnalysisMethod);
       setAnalysisResult(result);
     } catch (error: any) {
       setError(error.message || 'Analysis failed. Please try again.');
@@ -140,6 +195,9 @@ const CodeAnalyzer: React.FC = () => {
                 extractionMethods={extractionMethods}
                 selectedMethod={selectedMethod}
                 onMethodChange={setSelectedMethod}
+                analysisMethods={analysisMethods}
+                selectedAnalysisMethod={selectedAnalysisMethod}
+                onAnalysisMethodChange={setSelectedAnalysisMethod}
                 prompt={prompt}
                 onPromptChange={setPrompt}
               />

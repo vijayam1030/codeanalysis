@@ -13,12 +13,15 @@ import {
   Tooltip,
 } from '@mui/material';
 import { SettingsOutlined, InfoOutlined } from '@mui/icons-material';
-import type { ExtractionMethod } from '../types/types';
+import type { ExtractionMethod, AnalysisMethod } from '../types/types';
 
 interface AnalysisSettingsProps {
   extractionMethods: ExtractionMethod[];
   selectedMethod: string;
   onMethodChange: (method: string) => void;
+  analysisMethods: AnalysisMethod[];
+  selectedAnalysisMethod: string;
+  onAnalysisMethodChange: (method: string) => void;
   prompt: string;
   onPromptChange: (prompt: string) => void;
 }
@@ -27,10 +30,14 @@ const AnalysisSettings: React.FC<AnalysisSettingsProps> = ({
   extractionMethods,
   selectedMethod,
   onMethodChange,
+  analysisMethods,
+  selectedAnalysisMethod,
+  onAnalysisMethodChange,
   prompt,
   onPromptChange,
 }) => {
   const selectedMethodInfo = extractionMethods.find(m => m.id === selectedMethod);
+  const selectedAnalysisInfo = analysisMethods.find(m => m.id === selectedAnalysisMethod);
 
   const getSpeedColor = (speed?: string) => {
     switch (speed?.toLowerCase()) {
@@ -75,6 +82,11 @@ const AnalysisSettings: React.FC<AnalysisSettingsProps> = ({
                   <Typography variant="caption" color="text.secondary">
                     {method.description}
                   </Typography>
+                  {method.model && (
+                    <Typography variant="caption" color="primary.main" sx={{ display: 'block', fontWeight: 500 }}>
+                      Model: {method.model}
+                    </Typography>
+                  )}
                 </Box>
               </MenuItem>
             ))}
@@ -87,7 +99,7 @@ const AnalysisSettings: React.FC<AnalysisSettingsProps> = ({
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <InfoOutlined sx={{ fontSize: 16, mr: 1, color: 'primary.main' }} />
               <Typography variant="subtitle2" color="primary.main">
-                Method Details
+                Extraction Method Details
               </Typography>
             </Box>
             
@@ -137,6 +149,127 @@ const AnalysisSettings: React.FC<AnalysisSettingsProps> = ({
                   color="warning"
                   variant="outlined"
                 />
+              </Box>
+            )}
+            
+            {selectedMethodInfo.model && (
+              <Box sx={{ mt: 1, p: 1, backgroundColor: 'primary.50', borderRadius: 0.5 }}>
+                <Typography variant="caption" color="primary.main" sx={{ fontWeight: 600 }}>
+                  🤖 Model: {selectedMethodInfo.model}
+                </Typography>
+                {selectedMethodInfo.technology && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                    Technology: {selectedMethodInfo.technology}
+                  </Typography>
+                )}
+              </Box>
+            )}
+          </Box>
+        )}
+
+        {/* Analysis Method */}
+        <FormControl fullWidth sx={{ mb: 3 }}>
+          <InputLabel>Analysis Method</InputLabel>
+          <Select
+            value={selectedAnalysisMethod}
+            label="Analysis Method"
+            onChange={(e) => onAnalysisMethodChange(e.target.value)}
+          >
+            {analysisMethods.map((method) => (
+              <MenuItem key={method.id} value={method.id}>
+                <Box>
+                  <Typography variant="body1">{method.name}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {method.description}
+                  </Typography>
+                  {method.model && (
+                    <Typography variant="caption" color="secondary.main" sx={{ display: 'block', fontWeight: 500 }}>
+                      Model: {method.model}
+                    </Typography>
+                  )}
+                </Box>
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {/* Analysis Method Info */}
+        {selectedAnalysisInfo && (
+          <Box sx={{ mb: 3, p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <InfoOutlined sx={{ fontSize: 16, mr: 1, color: 'secondary.main' }} />
+              <Typography variant="subtitle2" color="secondary.main">
+                Analysis Method Details
+              </Typography>
+            </Box>
+            
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {selectedAnalysisInfo.description}
+            </Typography>
+            
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {selectedAnalysisInfo.speed && (
+                <Chip 
+                  label={`Speed: ${selectedAnalysisInfo.speed}`} 
+                  size="small" 
+                  color={getSpeedColor(selectedAnalysisInfo.speed) as any}
+                  variant="outlined"
+                />
+              )}
+              {selectedAnalysisInfo.accuracy && (
+                <Chip 
+                  label={`Accuracy: ${selectedAnalysisInfo.accuracy}`} 
+                  size="small" 
+                  color={getConfidenceColor(selectedAnalysisInfo.accuracy) as any}
+                  variant="outlined"
+                />
+              )}
+              {selectedAnalysisInfo.cost && (
+                <Chip 
+                  label={`Cost: ${selectedAnalysisInfo.cost}`} 
+                  size="small" 
+                  color="info"
+                  variant="outlined"
+                />
+              )}
+              {selectedAnalysisInfo.recommended && (
+                <Chip 
+                  label="Recommended" 
+                  size="small" 
+                  color="success"
+                />
+              )}
+            </Box>
+            
+            {selectedAnalysisInfo.capabilities && selectedAnalysisInfo.capabilities.length > 0 && (
+              <Box sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  Capabilities:
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                  {selectedAnalysisInfo.capabilities.map((capability, index) => (
+                    <Chip 
+                      key={index}
+                      label={capability} 
+                      size="small" 
+                      color="primary"
+                      variant="outlined"
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+            
+            {selectedAnalysisInfo.model && (
+              <Box sx={{ mt: 1, p: 1, backgroundColor: 'secondary.50', borderRadius: 0.5 }}>
+                <Typography variant="caption" color="secondary.main" sx={{ fontWeight: 600 }}>
+                  🧠 Model: {selectedAnalysisInfo.model}
+                </Typography>
+                {selectedAnalysisInfo.technology && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                    Technology: {selectedAnalysisInfo.technology}
+                  </Typography>
+                )}
               </Box>
             )}
           </Box>

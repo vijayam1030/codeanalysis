@@ -52,11 +52,12 @@ export class CodeAnalyzerService {
     this.loadAnalysisHistory();
   }
 
-  analyzeImage(imageFile: File, prompt: string, extractionMethod: string = 'tesseract-standard'): Observable<AnalysisResult> {
+  analyzeImage(imageFile: File, prompt: string, extractionMethod: string = 'tesseract-standard', analysisMethod: string = 'comprehensive'): Observable<AnalysisResult> {
     const formData = new FormData();
     formData.append('images', imageFile);
     formData.append('prompt', prompt);
     formData.append('extractionMethod', extractionMethod);
+    formData.append('analysisMethod', analysisMethod);
 
     this.loadingSubject.next(true);
 
