@@ -42,11 +42,31 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
+    console.log('📁 File received:', {
+      fieldname: file.fieldname,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size
+    });
+    
+    // Check MIME type
+    if (file.mimetype && file.mimetype.startsWith('image/')) {
       cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed!'), false);
+      return;
     }
+    
+    // Fallback: check file extension if MIME type is missing or incorrect
+    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'];
+    const fileExtension = file.originalname ? file.originalname.toLowerCase().split('.').pop() : '';
+    
+    if (allowedExtensions.includes(`.${fileExtension}`)) {
+      console.log('✅ Accepting file based on extension:', fileExtension);
+      cb(null, true);
+      return;
+    }
+    
+    console.log('❌ Rejecting file:', file.mimetype, fileExtension);
+    cb(new Error(`Only image files are allowed! Received: ${file.mimetype || 'unknown mimetype'}, extension: ${fileExtension}`), false);
   }
 });
 
