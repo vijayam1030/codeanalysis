@@ -14,7 +14,7 @@ import ImageUpload from './ImageUpload';
 import AnalysisSettings from './AnalysisSettings';
 import AnalysisResults from './AnalysisResults';
 import BackendStatus from './BackendStatus';
-import { AnalysisResult, ExtractionMethod } from '../types';
+import type { AnalysisResult, ExtractionMethod } from '../types/types';
 import { analyzeImage, checkBackendHealth, getExtractionMethods } from '../services/api';
 
 const CodeAnalyzer: React.FC = () => {

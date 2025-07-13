@@ -31,7 +31,7 @@ import {
   TimerOutlined,
   LanguageOutlined,
 } from '@mui/icons-material';
-import { AnalysisResult } from '../types';
+import type { AnalysisResult } from '../types/types';
 
 interface AnalysisResultsProps {
   result: AnalysisResult | null;

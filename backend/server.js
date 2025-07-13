@@ -20,7 +20,11 @@ const cache = new NodeCache({ stdTTL: 3600 });
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:4200',
+  origin: [
+    'http://localhost:4200',  // Angular
+    'http://localhost:5173',  // React
+    'http://localhost:8501'   // Streamlit
+  ],
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
@@ -2130,7 +2134,12 @@ app.use((error, req, res, next) => {
   }
   
   console.error('Unhandled error:', error);
-  res.status(500).json({ error: 'Internal server error' });
+  console.error('Error stack:', error.stack);
+  res.status(500).json({ 
+    error: 'Internal server error',
+    message: error.message,
+    details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+  });
 });
 
 // Start server

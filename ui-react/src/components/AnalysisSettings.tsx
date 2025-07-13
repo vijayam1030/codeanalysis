@@ -13,7 +13,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import { SettingsOutlined, InfoOutlined } from '@mui/icons-material';
-import { ExtractionMethod } from '../types';
+import type { ExtractionMethod } from '../types/types';
 
 interface AnalysisSettingsProps {
   extractionMethods: ExtractionMethod[];
