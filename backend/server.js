@@ -3,7 +3,7 @@ const cors = require('cors');
 const multer = require('multer');
 const Tesseract = require('tesseract.js');
 const axios = require('axios');
-const sharp = require('sharp');
+// const sharp = require('sharp'); // Temporarily disabled due to platform issues
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const NodeCache = require('node-cache');
@@ -236,44 +236,9 @@ async function getBestModel(language) {
 // Enhanced image preprocessing for better OCR results
 async function preprocessImage(buffer) {
   try {
-    const image = sharp(buffer);
-    const metadata = await image.metadata();
-    
-    // Calculate optimal dimensions (OCR works best with DPI 300-400)
-    const targetHeight = Math.min(metadata.height * 2, 3000); // Scale up for better OCR
-    const targetWidth = Math.min(metadata.width * 2, 4000);
-    
-    // Advanced preprocessing pipeline
-    const processedImage = await image
-      // Resize for optimal OCR (larger is often better)
-      .resize(targetWidth, targetHeight, {
-        kernel: sharp.kernel.lanczos3, // High-quality interpolation
-        withoutEnlargement: false // Allow enlargement for small images
-      })
-      // Convert to grayscale for better OCR
-      .grayscale()
-      // Enhance contrast adaptively
-      .normalize()
-      // Apply unsharp mask for better edge definition
-      .sharpen({
-        sigma: 1.5, // Stronger sharpening
-        m1: 1.0,    // Mask factor
-        m2: 0.2,    // Mask offset
-        x1: 2,      // Flat area threshold
-        y2: 10,     // Slope area threshold
-        y3: 20      // Limit threshold
-      })
-      // Enhance contrast further
-      .linear(1.2, -10) // Slightly increase contrast and reduce brightness
-      // Convert to high-quality PNG
-      .png({ 
-        compressionLevel: 0, // No compression for best quality
-        quality: 100 
-      })
-      .toBuffer();
-    
-    console.log(`Image preprocessed: ${metadata.width}x${metadata.height} -> ${targetWidth}x${targetHeight}`);
-    return processedImage;
+    // Sharp is disabled due to platform issues, return original buffer
+    console.log('Image preprocessing skipped (Sharp disabled)');
+    return buffer;
     
   } catch (error) {
     console.error('Image preprocessing error:', error);
@@ -284,29 +249,9 @@ async function preprocessImage(buffer) {
 // Alternative preprocessing for low-quality images
 async function preprocessImageAdvanced(buffer) {
   try {
-    const image = sharp(buffer);
-    const metadata = await image.metadata();
-    
-    // For very small or low-quality images, use different approach
-    if (metadata.width < 800 || metadata.height < 600) {
-      return await image
-        .resize(metadata.width * 3, metadata.height * 3, {
-          kernel: sharp.kernel.cubic
-        })
-        .modulate({
-          brightness: 1.1,
-          saturation: 0.8,
-          hue: 0
-        })
-        .grayscale()
-        .sharpen({ sigma: 2 })
-        .threshold(128, { grayscale: false }) // Binary threshold
-        .png({ compressionLevel: 0 })
-        .toBuffer();
-    }
-    
-    // For better quality images, use standard preprocessing
-    return await preprocessImage(buffer);
+    // Sharp is disabled due to platform issues, return original buffer
+    console.log('Advanced image preprocessing skipped (Sharp disabled)');
+    return buffer;
     
   } catch (error) {
     console.error('Advanced preprocessing error:', error);
@@ -598,34 +543,53 @@ function cleanGenericCode(code) {
     .replace(/\s*\/\s*/g, ' / ');
 }
 
-// Enhanced OCR extraction with multiple strategies for better accuracy
-async function extractCodeFromImage(imageBuffer) {
+// Enhanced image extraction with method selection
+async function extractCodeFromImage(imageBuffer, extractionMethod = 'tesseract-multi') {
   try {
-    // Try multiple preprocessing approaches for best results
-    const results = await Promise.allSettled([
-      extractWithStandardPreprocessing(imageBuffer),
-      extractWithAdvancedPreprocessing(imageBuffer),
-      extractWithHighContrastPreprocessing(imageBuffer)
-    ]);
+    console.log(`Using extraction method: ${extractionMethod}`);
     
-    // Find the best result based on confidence and text quality
-    const successfulResults = results
-      .filter(result => result.status === 'fulfilled' && result.value.text.length > 0)
-      .map(result => result.value)
-      .sort((a, b) => b.confidence - a.confidence);
-    
-    if (successfulResults.length === 0) {
-      throw new Error('All OCR attempts failed');
+    switch (extractionMethod) {
+      case 'tesseract-standard':
+        const standardResult = await extractWithStandardPreprocessing(imageBuffer);
+        return standardResult.text;
+        
+      case 'tesseract-advanced':
+        const advancedResult = await extractWithAdvancedPreprocessing(imageBuffer);
+        return advancedResult.text;
+        
+      case 'tesseract-high-contrast':
+        const contrastResult = await extractWithHighContrastPreprocessing(imageBuffer);
+        return contrastResult.text;
+        
+      case 'llm-vision':
+        return await extractWithLLMVision(imageBuffer);
+        
+      case 'tesseract-multi':
+      default:
+        // Original multi-strategy approach
+        const results = await Promise.allSettled([
+          extractWithStandardPreprocessing(imageBuffer),
+          extractWithAdvancedPreprocessing(imageBuffer),
+          extractWithHighContrastPreprocessing(imageBuffer)
+        ]);
+        
+        const successfulResults = results
+          .filter(result => result.status === 'fulfilled' && result.value.text.length > 0)
+          .map(result => result.value)
+          .sort((a, b) => b.confidence - a.confidence);
+        
+        if (successfulResults.length === 0) {
+          throw new Error('All OCR attempts failed');
+        }
+        
+        const bestResult = successfulResults[0];
+        console.log(`Best OCR result: ${bestResult.confidence}% confidence, ${bestResult.text.length} characters`);
+        return bestResult.text;
     }
     
-    const bestResult = successfulResults[0];
-    console.log(`Best OCR result: ${bestResult.confidence}% confidence, ${bestResult.text.length} characters`);
-    
-    return bestResult.text;
-    
   } catch (error) {
-    console.error('OCR Error:', error);
-    throw new Error('Failed to extract text from image');
+    console.error('Extraction Error:', error);
+    throw new Error(`Failed to extract text using ${extractionMethod}: ${error.message}`);
   }
 }
 
@@ -715,6 +679,103 @@ function cleanupExtractedText(rawText) {
     .replace(/\r/g, '\n');
   
   return cleanedText;
+}
+
+// LLM vision-based extraction using local vision models
+async function extractWithLLMVision(imageBuffer) {
+  try {
+    // Convert image to base64
+    const base64Image = imageBuffer.toString('base64');
+    
+    // Check for available vision models (prioritize faster, smaller models)
+    const visionModels = [
+      'qwen2-vl:2b',           // Fastest option
+      'qwen2.5-coder:1.5b',   // Very fast for code
+      'qwen2.5-coder:3b',     // Good balance
+      'moondream:latest',      // Lightweight option
+      'qwen2-vl:7b', 
+      'qwen2.5-coder:7b',
+      'llava:7b',
+      'qwen2-vl:latest',
+      'qwen2.5-coder:latest',
+      'llava:latest',
+      'bakllava:latest',
+      'llava:13b',
+      'llama3.2-vision:11b'   // Moved to last (slowest)
+    ];
+    let selectedModel = null;
+    
+    try {
+      const modelsResponse = await axios.get(`${process.env.OLLAMA_URL || 'http://localhost:11434'}/api/tags`);
+      const availableModels = modelsResponse.data.models.map(m => m.name);
+      selectedModel = visionModels.find(model => availableModels.includes(model));
+    } catch (error) {
+      console.warn('Could not fetch available models, trying default vision model');
+      selectedModel = 'qwen2-vl:latest';
+    }
+    
+    if (!selectedModel) {
+      throw new Error('No vision models available. Please install a vision model like: ollama pull qwen2-vl:latest');
+    }
+    
+    console.log(`Using vision model: ${selectedModel}`);
+    
+    // Use Qwen vision to extract code with optimized prompt
+    const isQwenModel = selectedModel.includes('qwen');
+    const extractionPrompt = isQwenModel 
+      ? `Extract the programming code from this image. Return ONLY the code text with proper formatting and indentation. Do not include explanations, descriptions, or markdown formatting - just the raw code exactly as it appears in the image.`
+      : `Please extract the exact code from this image. Return only the code text, nothing else. Preserve all formatting, indentation, and special characters exactly as shown.`;
+
+    const response = await axios.post(`${process.env.OLLAMA_URL || 'http://localhost:11434'}/api/generate`, {
+      model: selectedModel,
+      prompt: extractionPrompt,
+      images: [base64Image],
+      stream: false,
+      options: {
+        temperature: 0,  // Very low temperature for exact extraction
+        top_p: 0.3,     // Increased for faster generation
+        top_k: 20,      // Increased for faster generation
+        num_predict: 2048,  // Reduced for faster processing
+        repeat_penalty: 1.0
+      }
+    }, {
+      timeout: 120000  // 2 minute timeout for optimized processing
+    });
+    
+    let extractedText = response.data.response.trim();
+    
+    // Post-process Qwen output to clean up common artifacts
+    if (isQwenModel) {
+      // Remove common Qwen artifacts and formatting
+      extractedText = extractedText
+        .replace(/^```[\w]*\n?/gm, '') // Remove opening code blocks
+        .replace(/\n?```$/gm, '') // Remove closing code blocks
+        .replace(/^Here (?:is|are) the (?:code|programming code|extracted code)[:\s]*/i, '') // Remove intro text
+        .replace(/^(?:The )?(?:extracted )?code (?:from the image )?is[:\s]*/i, '') // Remove intro text
+        .replace(/^This (?:image )?(?:shows|contains|displays)[:\s]*/i, '') // Remove description
+        .trim();
+    }
+    
+    if (!extractedText || extractedText.length < 10) {
+      throw new Error('Vision model extraction returned insufficient text');
+    }
+    
+    console.log(`${isQwenModel ? 'Qwen' : 'LLM'} Vision extracted ${extractedText.length} characters`);
+    return extractedText;
+    
+  } catch (error) {
+    console.error('LLM Vision extraction failed:', error);
+    
+    if (error.response && error.response.status === 404) {
+      throw new Error(`Vision model not found. Please install a vision model: ollama pull qwen2-vl:latest`);
+    }
+    
+    if (error.code === 'ECONNREFUSED') {
+      throw new Error('Cannot connect to Ollama service. Please ensure Ollama is running.');
+    }
+    
+    throw new Error(`LLM vision extraction failed: ${error.message}`);
+  }
 }
 
 // Enhanced SQL line analysis function
@@ -1870,10 +1931,13 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'No image file provided' });
     }
 
-    const { prompt = 'Explain this code and provide suggestions for improvement' } = req.body;
+    const { 
+      prompt = 'Explain this code and provide suggestions for improvement',
+      extractionMethod = 'tesseract-multi'
+    } = req.body;
     
-    // Generate cache key
-    const cacheKey = `${req.file.buffer.toString('base64').slice(0, 50)}_${prompt}`;
+    // Generate cache key including extraction method
+    const cacheKey = `${req.file.buffer.toString('base64').slice(0, 50)}_${prompt}_${extractionMethod}`;
     
     // Check cache first
     const cachedResult = cache.get(cacheKey);
@@ -1881,9 +1945,9 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
       return res.json({ ...cachedResult, fromCache: true });
     }
 
-    // Extract code from image
-    console.log('Extracting code from image...');
-    const rawExtractedCode = await extractCodeFromImage(req.file.buffer);
+    // Extract code from image using selected method
+    console.log(`Extracting code from image using method: ${extractionMethod}...`);
+    const rawExtractedCode = await extractCodeFromImage(req.file.buffer, extractionMethod);
     
     if (!rawExtractedCode || rawExtractedCode.trim().length === 0) {
       return res.status(400).json({ 
@@ -1910,13 +1974,9 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
       console.error('Failed to check Ollama availability:', error.message);
       console.error('Attempted URL:', ollamaUrl);
       
-      const isRemote = ollamaUrl.includes('trycloudflare.com') || ollamaUrl.includes('https://');
-      
       return res.status(503).json({ 
         error: 'Ollama service is not available. Please ensure Ollama is installed and running.',
-        suggestion: isRemote 
-          ? 'For remote deployment, ensure Ollama tunnel is running and accessible at: ' + ollamaUrl
-          : 'Please install Ollama from https://ollama.ai and ensure it is running on localhost:11434',
+        suggestion: 'Please install Ollama from https://ollama.ai and ensure it is running on localhost:11434',
         ollamaUrl: ollamaUrl
       });
     }
@@ -1942,6 +2002,7 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
       rawExtractedCode: rawExtractedCode, // Keep original for comparison
       detectedLanguage,
       analysis,
+      extractionMethod,
       timestamp: new Date().toISOString()
     };
 
@@ -2007,41 +2068,75 @@ app.get('/api/models', async (req, res) => {
   }
 });
 
-// Import tunnel reader
-const { getTunnelStatus } = require('./tunnel-reader');
-
-// Tunnel status endpoint
-app.get('/api/tunnel-status', async (req, res) => {
+// Get available extraction methods
+app.get('/api/extraction-methods', (req, res) => {
   try {
-    const tunnelInfo = await getTunnelStatus();
-    res.json(tunnelInfo);
+    const methods = [
+      {
+        id: 'tesseract-multi',
+        name: 'Tesseract Multi-Strategy (Default)',
+        description: 'Uses multiple Tesseract preprocessing approaches and selects the best result',
+        type: 'ocr',
+        confidence: 'High',
+        speed: 'Medium',
+        cost: 'Free',
+        recommended: true
+      },
+      {
+        id: 'tesseract-standard',
+        name: 'Tesseract Standard',
+        description: 'Standard Tesseract OCR with basic preprocessing',
+        type: 'ocr',
+        confidence: 'Medium',
+        speed: 'Fast',
+        cost: 'Free'
+      },
+      {
+        id: 'tesseract-advanced',
+        name: 'Tesseract Advanced',
+        description: 'Advanced preprocessing for low-quality images',
+        type: 'ocr',
+        confidence: 'Medium-High',
+        speed: 'Medium',
+        cost: 'Free'
+      },
+      {
+        id: 'tesseract-high-contrast',
+        name: 'Tesseract High Contrast',
+        description: 'High contrast preprocessing for clear/dark images',
+        type: 'ocr',
+        confidence: 'Medium-High',
+        speed: 'Medium',
+        cost: 'Free'
+      },
+      {
+        id: 'llm-vision',
+        name: 'LLM Vision Model',
+        description: 'Use Llama 3.2 Vision or Qwen Vision model for highly accurate code extraction',
+        type: 'llm',
+        confidence: 'Very High',
+        speed: 'Slow',
+        cost: 'Compute',
+        requiresVisionModel: true
+      }
+    ];
+
+    res.json({ 
+      extractionMethods: methods,
+      currentTools: {
+        primaryOCR: 'Tesseract.js v5.0.4',
+        imagePreprocessing: 'Sharp v0.32.6',
+        languageDetection: 'linguist-js v2.9.2',
+        visionModel: 'Llama 3.2 Vision (llama3.2-vision:11b) / Qwen Vision',
+        analysis: 'Ollama LLM models'
+      }
+    });
   } catch (error) {
-    console.error('Error getting tunnel status:', error);
-    
-    // Fallback to basic status
-    const fallbackInfo = {
-      ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-      isRemote: (process.env.OLLAMA_URL || '').includes('trycloudflare.com'),
-      backendPort: PORT,
-      frontendPort: 4200,
-      tunnels: {
-        ollama: process.env.OLLAMA_URL && process.env.OLLAMA_URL.includes('trycloudflare.com') 
-          ? process.env.OLLAMA_URL 
-          : null,
-        backend: null,
-        frontend: null
-      },
-      shareableUrls: {
-        backend: `http://localhost:${PORT}`,
-        frontend: 'http://localhost:4200'
-      },
-      lastUpdated: new Date().toISOString(),
-      error: 'Could not read tunnel logs'
-    };
-    
-    res.json(fallbackInfo);
+    console.error('Error fetching extraction methods:', error);
+    res.status(500).json({ error: 'Failed to fetch extraction methods' });
   }
 });
+
 
 // Error handling middleware
 app.use((error, req, res, next) => {

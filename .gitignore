@@ -350,3 +350,58 @@ models/
 
 # Configuration backups
 config.backup.*
+
+# Python virtual environments and ML files
+qwen2vl_env/
+*.py
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Batch files and scripts
+*.bat
+*.sh
+!setup.sh
+!share-setup.sh
+!start-full-sharing.sh
+!start-with-tunnels.sh
+!start-app.sh
+
+# Package lock files (keep package.json)
+package-lock.json
+**/package-lock.json
+
+# Frontend Angular cache
+.angular/cache/
+
+# VS Code settings (keep some config files)
+.vscode/launch.json
+.vscode/tasks.json
+
+# Documentation files (temporary)
+START_HERE.md
+debug-*.bat
+*-setup.md
+QUICKSTART.md
+
+# Temporary test and debug files
+simple_qwen_test.py
+qwen2_vl_test.py
+package.json.fix

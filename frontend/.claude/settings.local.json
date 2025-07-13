@@ -2,7 +2,25 @@
   "permissions": {
     "allow": [
       "Bash(chmod:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(grep:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout 5s npm run dev)",
+      "Bash(curl:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(ollama list:*)",
+      "Bash(pip install:*)",
+      "Bash(python3:*)",
+      "Bash(source:*)",
+      "Bash(python:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(npm rebuild:*)",
+      "Bash(ollama pull:*)",
+      "Bash(ollama search:*)",
+      "Bash(pkill:*)",
+      "Bash(rm:*)",
+      "Bash(npm start)",
+      "Bash(ss:*)"
     ],
     "deny": []
   }

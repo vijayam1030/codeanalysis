@@ -17,22 +17,6 @@ import { Subscription, interval } from 'rxjs';
 
 import { CodeAnalyzerService, AnalysisResult } from '../../services/code-analyzer.service';
 
-interface TunnelStatus {
-  ollamaUrl: string;
-  isRemote: boolean;
-  backendPort: number;
-  frontendPort: number;
-  tunnels: {
-    ollama: string | null;
-    backend: string | null;
-    frontend: string | null;
-  };
-  shareableUrls: {
-    backend: string;
-    frontend: string;
-  };
-  lastUpdated?: string;
-}
 
 @Component({
   selector: 'app-code-analyzer',
@@ -103,92 +87,6 @@ interface TunnelStatus {
         </mat-card-content>
       </mat-card>
 
-      <!-- Tunnel Status Section -->
-      <mat-card class="tunnel-status-card" *ngIf="tunnelStatus">
-        <mat-card-header>
-          <mat-card-title>
-            <mat-icon [color]="tunnelStatus.isRemote ? 'primary' : 'accent'">
-              {{ tunnelStatus.isRemote ? 'cloud' : 'computer' }}
-            </mat-icon>
-            {{ tunnelStatus.isRemote ? 'Remote Sharing Active' : 'Local Development Mode' }}
-          </mat-card-title>
-          <mat-card-subtitle>
-            <span *ngIf="!tunnelStatus.isRemote">Use cloudflared tunnels for remote sharing</span>
-            <span *ngIf="tunnelStatus.isRemote">Application is accessible remotely</span>
-            <span *ngIf="tunnelStatus.lastUpdated" class="last-updated">
-              • Updated: {{ tunnelStatus.lastUpdated | date:'short' }}
-            </span>
-          </mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="tunnel-info">
-            <!-- Local URLs -->
-            <div class="url-section" *ngIf="!tunnelStatus.isRemote">
-              <h4><mat-icon>computer</mat-icon> Local URLs:</h4>
-              <div class="url-list">
-                <div class="url-item">
-                  <span class="url-label">Frontend:</span>
-                  <code class="url-value">http://localhost:4200</code>
-                  <button mat-icon-button (click)="copyToClipboard('http://localhost:4200')" matTooltip="Copy URL">
-                    <mat-icon>content_copy</mat-icon>
-                  </button>
-                </div>
-                <div class="url-item">
-                  <span class="url-label">Backend:</span>
-                  <code class="url-value">http://localhost:{{ tunnelStatus.backendPort }}</code>
-                  <button mat-icon-button (click)="copyToClipboard('http://localhost:' + tunnelStatus.backendPort)" matTooltip="Copy URL">
-                    <mat-icon>content_copy</mat-icon>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Remote URLs -->
-            <div class="url-section" *ngIf="tunnelStatus.isRemote">
-              <h4><mat-icon>cloud</mat-icon> Shareable URLs:</h4>
-              <div class="url-list">
-                <div class="url-item" *ngIf="tunnelStatus.shareableUrls.frontend !== 'http://localhost:4200'">
-                  <span class="url-label">Frontend (Share this):</span>
-                  <code class="url-value">{{ tunnelStatus.shareableUrls.frontend }}</code>
-                  <button mat-icon-button (click)="copyToClipboard(tunnelStatus.shareableUrls.frontend)" matTooltip="Copy shareable URL">
-                    <mat-icon>content_copy</mat-icon>
-                  </button>
-                  <button mat-icon-button (click)="openUrl(tunnelStatus.shareableUrls.frontend)" matTooltip="Open in new tab">
-                    <mat-icon>open_in_new</mat-icon>
-                  </button>
-                </div>
-                <div class="url-item" *ngIf="tunnelStatus.tunnels.backend">
-                  <span class="url-label">Backend API:</span>
-                  <code class="url-value">{{ tunnelStatus.tunnels.backend }}</code>
-                  <button mat-icon-button (click)="copyToClipboard(tunnelStatus.tunnels.backend)" matTooltip="Copy API URL">
-                    <mat-icon>content_copy</mat-icon>
-                  </button>
-                </div>
-                <div class="url-item" *ngIf="tunnelStatus.tunnels.ollama">
-                  <span class="url-label">Ollama Service:</span>
-                  <code class="url-value">{{ tunnelStatus.tunnels.ollama }}</code>
-                  <button mat-icon-button (click)="copyToClipboard(tunnelStatus.tunnels.ollama)" matTooltip="Copy Ollama URL">
-                    <mat-icon>content_copy</mat-icon>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="tunnel-actions" *ngIf="!tunnelStatus.isRemote">
-              <p class="tunnel-hint">
-                <mat-icon>info</mat-icon>
-                To share this application remotely, restart with tunnel support: <code>npm run start-with-tunnels</code>
-              </p>
-            </div>
-          </div>
-        </mat-card-content>
-        <mat-card-actions>
-          <button mat-button (click)="refreshTunnelStatus()">
-            <mat-icon>refresh</mat-icon>
-            Refresh Status
-          </button>
-        </mat-card-actions>
-      </mat-card>
 
       <!-- Prompt Section -->
       <mat-card class="prompt-card">
@@ -221,6 +119,53 @@ interface TunnelStatus {
               </mat-chip>
             </mat-chip-set>
           </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Extraction Method Section -->
+      <mat-card class="extraction-method-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>settings</mat-icon>
+            Extraction Method
+          </mat-card-title>
+          <mat-card-subtitle>
+            Choose how to extract code from your image
+          </mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-form-field class="full-width">
+            <mat-label>Image Processing Method</mat-label>
+            <mat-select [(ngModel)]="selectedExtractionMethod">
+              <mat-option 
+                *ngFor="let method of extractionMethods" 
+                [value]="method.id"
+                [class.recommended-option]="method.recommended"
+              >
+                <div class="extraction-option">
+                  <div class="method-name">
+                    {{ method.name }}
+                    <mat-icon *ngIf="method.recommended" class="recommended-icon">star</mat-icon>
+                  </div>
+                  <div class="method-description">{{ method.description }}</div>
+                  <div class="method-stats" *ngIf="method.confidence">
+                    <span class="stat">{{ method.confidence }} confidence</span> • 
+                    <span class="stat">{{ method.speed }} speed</span> • 
+                    <span class="stat">{{ method.cost }}</span>
+                  </div>
+                </div>
+              </mat-option>
+            </mat-select>
+            <mat-hint>
+              <span *ngIf="selectedExtractionMethod === 'llm-vision'" class="vision-hint">
+                <mat-icon>info</mat-icon>
+                Vision extraction requires a vision model like 'llama3.2-vision:11b' or 'qwen2-vl:latest' to be installed.
+              </span>
+              <span *ngIf="selectedExtractionMethod !== 'llm-vision'">
+                Tesseract OCR methods are free and work offline.
+              </span>
+            </mat-hint>
+          </mat-form-field>
         </mat-card-content>
       </mat-card>
 
@@ -442,10 +387,11 @@ export class CodeAnalyzerComponent implements OnInit, OnDestroy {
   selectedFile: File | null = null;
   imagePreview: string | null = null;
   prompt: string = 'Explain this code and provide suggestions for improvement';
+  selectedExtractionMethod: string = 'tesseract-multi';
+  extractionMethods: any[] = [];
   isDragOver = false;
   analysisResult: AnalysisResult | null = null;
   loadingMessage = 'Extracting code from image...';
-  tunnelStatus: TunnelStatus | null = null;
   
   promptTemplates = [
     'Explain this code and provide suggestions for improvement',
@@ -471,10 +417,8 @@ export class CodeAnalyzerComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Check backend health on component initialization
     this.checkBackendHealth();
-    // Load tunnel status
-    this.loadTunnelStatus();
-    // Set up auto-refresh for tunnel status every 10 seconds
-    this.startTunnelStatusAutoRefresh();
+    // Load extraction methods
+    this.loadExtractionMethods();
   }
 
   ngOnDestroy(): void {
@@ -564,7 +508,7 @@ export class CodeAnalyzerComponent implements OnInit, OnDestroy {
 
     this.loadingMessage = 'Extracting code from image...';
     
-    const subscription = this.codeAnalyzerService.analyzeImage(this.selectedFile, this.prompt)
+    const subscription = this.codeAnalyzerService.analyzeImage(this.selectedFile, this.prompt, this.selectedExtractionMethod)
       .subscribe({
         next: (result: AnalysisResult) => {
           this.analysisResult = result;
@@ -590,6 +534,28 @@ export class CodeAnalyzerComponent implements OnInit, OnDestroy {
     this.imagePreview = null;
     this.analysisResult = null;
     this.prompt = 'Explain this code and provide suggestions for improvement';
+    this.selectedExtractionMethod = 'tesseract-multi';
+  }
+
+  private loadExtractionMethods(): void {
+    this.codeAnalyzerService.getExtractionMethods().subscribe({
+      next: (response: any) => {
+        this.extractionMethods = response.extractionMethods;
+        console.log('Loaded extraction methods:', this.extractionMethods);
+      },
+      error: (error: any) => {
+        console.error('Failed to load extraction methods:', error);
+        // Fallback to default methods
+        this.extractionMethods = [
+          {
+            id: 'tesseract-multi',
+            name: 'Tesseract Multi-Strategy (Default)',
+            description: 'Uses multiple Tesseract preprocessing approaches',
+            recommended: true
+          }
+        ];
+      }
+    });
   }
 
   formatFileSize(bytes: number): string {
@@ -663,65 +629,4 @@ export class CodeAnalyzerComponent implements OnInit, OnDestroy {
     return this.analysisResult.extractedCode.split('\n').length;
   }
 
-  loadTunnelStatus(): void {
-    this.codeAnalyzerService.getTunnelStatus().subscribe({
-      next: (status: TunnelStatus) => {
-        this.tunnelStatus = status;
-      },
-      error: (error: any) => {
-        console.warn('Could not load tunnel status:', error);
-        // Set default local status if backend is not accessible
-        this.tunnelStatus = {
-          ollamaUrl: 'http://localhost:11434',
-          isRemote: false,
-          backendPort: 5000,
-          frontendPort: 4200,
-          tunnels: {
-            ollama: null,
-            backend: null,
-            frontend: null
-          },
-          shareableUrls: {
-            backend: 'http://localhost:5000',
-            frontend: 'http://localhost:4200'
-          }
-        };
-      }
-    });
-  }
-
-  refreshTunnelStatus(): void {
-    this.loadTunnelStatus();
-    this.snackBar.open('Tunnel status refreshed!', 'OK', {
-      duration: 2000,
-      panelClass: ['success-snackbar']
-    });
-  }
-
-  copyToClipboard(text: string): void {
-    navigator.clipboard.writeText(text).then(() => {
-      this.snackBar.open('URL copied to clipboard!', 'OK', {
-        duration: 2000,
-        panelClass: ['success-snackbar']
-      });
-    }).catch(() => {
-      this.snackBar.open('Failed to copy URL', 'OK', {
-        duration: 2000,
-        panelClass: ['error-snackbar']
-      });
-    });
-  }
-
-  openUrl(url: string): void {
-    window.open(url, '_blank');
-  }
-
-  startTunnelStatusAutoRefresh(): void {
-    // Refresh tunnel status every 10 seconds to catch new tunnel URLs
-    const refreshSubscription = interval(10000).subscribe(() => {
-      this.loadTunnelStatus();
-    });
-    
-    this.subscriptions.push(refreshSubscription);
-  }
 }

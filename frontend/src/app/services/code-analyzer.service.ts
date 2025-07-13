@@ -52,10 +52,11 @@ export class CodeAnalyzerService {
     this.loadAnalysisHistory();
   }
 
-  analyzeImage(imageFile: File, prompt: string): Observable<AnalysisResult> {
+  analyzeImage(imageFile: File, prompt: string, extractionMethod: string = 'tesseract-multi'): Observable<AnalysisResult> {
     const formData = new FormData();
     formData.append('image', imageFile);
     formData.append('prompt', prompt);
+    formData.append('extractionMethod', extractionMethod);
 
     this.loadingSubject.next(true);
 
@@ -84,8 +85,9 @@ export class CodeAnalyzerService {
     return this.http.get(`${this.baseUrl}/health`);
   }
 
-  getTunnelStatus(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/tunnel-status`);
+
+  getExtractionMethods(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/extraction-methods`);
   }
 
   private addToHistory(result: AnalysisResult): void {
