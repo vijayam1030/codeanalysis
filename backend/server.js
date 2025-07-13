@@ -569,10 +569,13 @@ function cleanGenericCode(code) {
 async function extractCodeFromImage(imageBuffer, extractionMethod = 'tesseract-multi') {
   try {
     console.log(`Using extraction method: ${extractionMethod}`);
+    console.log(`Image buffer size: ${imageBuffer.length} bytes`);
     
     switch (extractionMethod) {
       case 'tesseract-standard':
+        console.log('Starting tesseract-standard extraction...');
         const standardResult = await extractWithStandardPreprocessing(imageBuffer);
+        console.log('tesseract-standard extraction completed');
         return standardResult.text;
         
       case 'tesseract-advanced':
@@ -617,34 +620,42 @@ async function extractCodeFromImage(imageBuffer, extractionMethod = 'tesseract-m
 
 // Standard preprocessing OCR
 async function extractWithStandardPreprocessing(imageBuffer) {
-  const processedImage = await preprocessImage(imageBuffer);
-  
-  const result = await Promise.race([
-    Tesseract.recognize(processedImage, 'eng', {
-      logger: m => {
-        if (m.status === 'recognizing text' && m.progress < 1) {
-          // Only log every 20% progress to reduce spam
-          if (m.progress % 0.2 < 0.05) {
-            console.log(`Standard OCR: ${Math.round(m.progress * 100)}%`);
+  try {
+    console.log('Starting standard preprocessing...');
+    const processedImage = await preprocessImage(imageBuffer);
+    console.log('Image preprocessing completed');
+    
+    console.log('Starting Tesseract recognition...');
+    const result = await Promise.race([
+      Tesseract.recognize(processedImage, 'eng', {
+        logger: m => {
+          if (m.status === 'recognizing text' && m.progress < 1) {
+            // Only log every 20% progress to reduce spam
+            if (m.progress % 0.2 < 0.05) {
+              console.log(`Standard OCR: ${Math.round(m.progress * 100)}%`);
+            }
+          } else {
+            console.log('Standard OCR:', m.status);
           }
-        } else {
-          console.log('Standard OCR:', m.status);
-        }
-      },
-      tessedit_pageseg_mode: Tesseract.PSM.AUTO,
-      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]().,;:=+-*/<>?!@#$%^&|\\~`"\' \n\t_',
-      tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
-      preserve_interword_spaces: 1
-    }),
+        },
+        tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]().,;:=+-*/<>?!@#$%^&|\\~`"\' \n\t_',
+        tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
+        preserve_interword_spaces: 1
+      }),
     new Promise((_, reject) => 
       setTimeout(() => reject(new Error('OCR timeout after 60 seconds')), 60000)
     )
-  ]);
-  
-  return {
-    text: cleanupExtractedText(result.data.text),
-    confidence: result.data.confidence || 0
-  };
+    ]);
+    
+    return {
+      text: cleanupExtractedText(result.data.text),
+      confidence: result.data.confidence || 0
+    };
+  } catch (error) {
+    console.error('Standard preprocessing error:', error);
+    throw error;
+  }
 }
 
 // Advanced preprocessing OCR for low-quality images
