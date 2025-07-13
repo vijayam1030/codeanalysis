@@ -405,3 +405,7 @@ QUICKSTART.md
 simple_qwen_test.py
 qwen2_vl_test.py
 package.json.fix
+
+# Alternative UI node_modules
+ui-react/node_modules/
+ui-streamlit/node_modules/

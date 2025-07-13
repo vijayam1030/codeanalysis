@@ -14,7 +14,11 @@
       "Bash(node server.js)",
       "Bash(pkill:*)",
       "Bash(timeout:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(mkdir:*)",
+      "Bash(npx create-react-app:*)",
+      "Bash(npm create:*)",
+      "Bash(chmod:*)"
     ],
     "deny": []
   }
