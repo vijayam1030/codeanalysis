@@ -6,7 +6,15 @@
       "Bash(ng serve:*)",
       "Bash(npm run start:*)",
       "Bash(rm:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx tsc:*)",
+      "Bash(curl:*)",
+      "Bash(ss:*)",
+      "Bash(journalctl:*)",
+      "Bash(node server.js)",
+      "Bash(pkill:*)",
+      "Bash(timeout:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

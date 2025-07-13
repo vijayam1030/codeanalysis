@@ -63,16 +63,20 @@ import { CodeAnalyzerService, AnalysisResult } from '../../services/code-analyze
               #fileInput 
               type="file" 
               accept="image/*" 
+              multiple
               (change)="onFileSelect($event)"
               style="display: none"
             >
             <mat-icon class="upload-icon">cloud_upload</mat-icon>
             <p class="upload-text">
-              <ng-container *ngIf="!selectedFile">
-                Drag and drop an image here or click to select
+              <ng-container *ngIf="selectedFiles.length === 0">
+                Drag and drop images here or click to select (multiple files supported)
               </ng-container>
-              <ng-container *ngIf="selectedFile">
-                <strong>{{ selectedFile.name }}</strong> ({{ formatFileSize(selectedFile.size) }})
+              <ng-container *ngIf="selectedFiles.length === 1">
+                <strong>{{ selectedFiles[0].name }}</strong> ({{ formatFileSize(selectedFiles[0].size) }})
+              </ng-container>
+              <ng-container *ngIf="selectedFiles.length > 1">
+                <strong>{{ selectedFiles.length }} files selected</strong>
               </ng-container>
             </p>
             <p class="upload-hint">
@@ -385,9 +389,11 @@ import { CodeAnalyzerService, AnalysisResult } from '../../services/code-analyze
 })
 export class CodeAnalyzerComponent implements OnInit, OnDestroy {
   selectedFile: File | null = null;
+  selectedFiles: File[] = [];
   imagePreview: string | null = null;
+  imagePreviews: string[] = [];
   prompt: string = 'Explain this code and provide suggestions for improvement';
-  selectedExtractionMethod: string = 'tesseract-multi';
+  selectedExtractionMethod: string = 'tesseract-standard';
   extractionMethods: any[] = [];
   isDragOver = false;
   analysisResult: AnalysisResult | null = null;
@@ -455,42 +461,61 @@ export class CodeAnalyzerComponent implements OnInit, OnDestroy {
     
     const files = event.dataTransfer?.files;
     if (files && files.length > 0) {
-      this.handleFileSelection(files[0]);
+      this.handleMultipleFileSelection(Array.from(files));
     }
   }
 
   onFileSelect(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
-      this.handleFileSelection(input.files[0]);
+      this.handleMultipleFileSelection(Array.from(input.files));
     }
   }
 
+  private handleMultipleFileSelection(files: File[]): void {
+    const validFiles = files.filter(file => {
+      if (!file.type.startsWith('image/')) {
+        this.snackBar.open(`${file.name} is not a valid image file`, 'OK', {
+          duration: 3000,
+          panelClass: ['error-snackbar']
+        });
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
+    this.selectedFiles = validFiles;
+    this.selectedFile = validFiles[0]; // Keep backward compatibility
+    this.generateImagePreviews(validFiles);
+  }
+
   private handleFileSelection(file: File): void {
-    if (!file.type.startsWith('image/')) {
-      this.snackBar.open('Please select a valid image file', 'OK', {
-        duration: 3000,
-        panelClass: ['error-snackbar']
-      });
-      return;
-    }
+    this.handleMultipleFileSelection([file]);
+  }
 
-    if (file.size > 10 * 1024 * 1024) {
-      this.snackBar.open('File size must be less than 10MB', 'OK', {
-        duration: 3000,
-        panelClass: ['error-snackbar']
-      });
-      return;
-    }
-
-    this.selectedFile = file;
+  private generateImagePreviews(files: File[]): void {
+    this.imagePreviews = [];
     
-    // Create image preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      this.imagePreview = e.target?.result as string;
-    };
-    reader.readAsDataURL(file);
+    files.forEach((file, index) => {
+      if (file.size > 10 * 1024 * 1024) {
+        this.snackBar.open(`${file.name} is larger than 10MB`, 'OK', {
+          duration: 3000,
+          panelClass: ['error-snackbar']
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.imagePreviews[index] = e.target?.result as string;
+        if (index === 0) {
+          this.imagePreview = this.imagePreviews[0]; // Keep backward compatibility
+        }
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   selectPromptTemplate(template: string): void {

@@ -171,17 +171,17 @@ async function detectLanguage(code) {
 // Get best LLM model for the detected language
 async function getBestModel(language) {
   const modelMapping = {
-    python: 'codellama:7b',
-    javascript: 'codellama:7b', 
-    typescript: 'codellama:7b',
-    java: 'codellama:7b',
-    sql: 'codellama:7b',
-    csharp: 'codellama:7b',
-    cpp: 'codellama:7b',
-    php: 'codellama:7b',
-    ruby: 'codellama:7b',
-    go: 'codellama:7b',
-    unknown: 'llama3.2:latest'
+    python: 'llama3.2:1b',
+    javascript: 'llama3.2:1b', 
+    typescript: 'llama3.2:1b',
+    java: 'llama3.2:1b',
+    sql: 'llama3.2:1b',
+    csharp: 'llama3.2:1b',
+    cpp: 'llama3.2:1b',
+    php: 'llama3.2:1b',
+    ruby: 'llama3.2:1b',
+    go: 'llama3.2:1b',
+    unknown: 'llama3.2:1b'
   };
   
   const preferredModel = modelMapping[language] || 'llama3.2:latest';
@@ -198,19 +198,17 @@ async function getBestModel(language) {
     
     // Fallback hierarchy - more realistic models
     const fallbackModels = [
-      'codellama:7b',
-      'codellama:latest',
-      'llama3.2:latest',
-      'llama3.2:3b',
+      'tinyllama:1.1b',
+      'gemma:2b',
+      'codegemma:2b',
+      'smollm2:latest',
+      'qwen2.5-coder:1.5b',
       'llama3.2:1b',
-      'llama3.1:latest',
-      'llama3.1:8b',
-      'llama3:latest',
-      'llama3:8b',
-      'phi3:latest',
       'phi3:3.8b',
-      'llama2:latest',
-      'llama2:7b'
+      'llama3.2:3b',
+      'qwen2.5-coder:3b',
+      'llama3.2:latest',
+      'codellama:7b'
     ];
     
     for (const fallback of fallbackModels) {
@@ -597,13 +595,27 @@ async function extractCodeFromImage(imageBuffer, extractionMethod = 'tesseract-m
 async function extractWithStandardPreprocessing(imageBuffer) {
   const processedImage = await preprocessImage(imageBuffer);
   
-  const result = await Tesseract.recognize(processedImage, 'eng', {
-    logger: m => console.log('Standard OCR:', m.status),
-    tessedit_pageseg_mode: Tesseract.PSM.AUTO,
-    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]().,;:=+-*/<>?!@#$%^&|\\~`"\' \n\t_',
-    tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY, // Use LSTM for better accuracy
-    preserve_interword_spaces: 1 // Preserve spacing
-  });
+  const result = await Promise.race([
+    Tesseract.recognize(processedImage, 'eng', {
+      logger: m => {
+        if (m.status === 'recognizing text' && m.progress < 1) {
+          // Only log every 20% progress to reduce spam
+          if (m.progress % 0.2 < 0.05) {
+            console.log(`Standard OCR: ${Math.round(m.progress * 100)}%`);
+          }
+        } else {
+          console.log('Standard OCR:', m.status);
+        }
+      },
+      tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789{}[]().,;:=+-*/<>?!@#$%^&|\\~`"\' \n\t_',
+      tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
+      preserve_interword_spaces: 1
+    }),
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('OCR timeout after 60 seconds')), 60000)
+    )
+  ]);
   
   return {
     text: cleanupExtractedText(result.data.text),
@@ -1563,23 +1575,13 @@ async function analyzeCodeWithLLM(code, prompt, language) {
     // Create language-specific system prompt
     let systemPrompt;
     if (language === 'sql') {
-      console.log('Using specialized SQL analysis prompt');
-      systemPrompt = `You are an expert SQL database developer, performance tuner, and security analyst with deep knowledge of Oracle, SQL Server, MySQL, and PostgreSQL. 
+      console.log('Using simplified SQL analysis prompt');
+      systemPrompt = `You are an expert SQL database developer. Analyze the provided SQL code quickly and provide a structured analysis.
 
-MANDATORY REQUIREMENTS:
-1. ANALYZE EVERY SINGLE LINE of SQL code with detailed technical explanations
-2. ALWAYS provide detailed explanations AND multiple specific suggestions for each line
-3. User requests are ADDITIONAL to the mandatory line-by-line analysis
-4. NEVER use generic phrases like "Consider adding comments for clarity"
-5. ALWAYS provide specific, technical SQL explanations
-
-CRITICAL REQUIREMENT: You MUST analyze EVERY SINGLE LINE of SQL code. Do not skip any lines. Even blank lines or simple statements need detailed analysis.
-
-IMPORTANT: Always return a valid JSON object with the exact structure below. Do not include any text outside the JSON.
-
+Return a JSON object with this structure:
 {
   "language": "sql",
-  "overview": "Brief overview of what the SQL query does, its purpose, and database operations",
+  "overview": "Brief overview of the SQL query",
   "lineAnalysis": [
     {
       "lineNumber": 1,
@@ -1662,60 +1664,16 @@ Your explanation should be: "SQL/XML function XMLELEMENT creates an XML element 
 
 NEVER give generic responses like 'Consider adding comments for clarity'. Always provide specific, technical SQL explanations.`;
     } else {
-      systemPrompt = `You are an expert code reviewer, educator, and code formatter. Analyze the provided ${language} code and provide comprehensive feedback based on the user's request.
-
-CRITICAL REQUIREMENT: You MUST analyze EVERY SINGLE LINE of code. Do not skip any lines. Even blank lines or simple statements need analysis.
-
-IMPORTANT: Always return a valid JSON object with the exact structure below. Do not include any text outside the JSON.
-
+      systemPrompt = `Analyze this ${language} code. Return JSON:
 {
   "language": "${language}",
-  "overview": "Brief overview of what the code does and its purpose",
-  "lineAnalysis": [
-    {
-      "lineNumber": 1,
-      "originalCode": "exact original line of code (including if it's blank or whitespace)",
-      "explanation": "clear explanation of what this line does (for blank lines, explain their purpose in code structure)",
-      "suggestions": ["specific improvement suggestion 1", "specific improvement suggestion 2"],
-      "severity": "info|warning|error",
-      "category": "performance|readability|security|best-practice|syntax|structure"
-    }
-  ],
-  "overallSuggestions": [
-    "Overall code structure improvements",
-    "Best practices recommendations", 
-    "Performance optimization suggestions"
-  ],
-  "cleanedCode": "properly formatted and cleaned version of the original code with correct indentation and spacing",
-  "refactoredCode": "improved version with better practices, error handling, and optimizations",
-  "securityIssues": [
-    "Specific security vulnerability 1",
-    "Specific security vulnerability 2"
-  ],
-  "performanceIssues": [
-    "Specific performance bottleneck 1", 
-    "Specific performance optimization opportunity 2"
-  ],
-  "codeQuality": {
-    "readabilityScore": 8,
-    "maintainabilityScore": 7,
-    "performanceScore": 6,
-    "securityScore": 9
-  }
+  "overview": "what the code does",
+  "lineAnalysis": [{"lineNumber": 1, "originalCode": "line", "explanation": "brief", "suggestions": ["fix"], "severity": "info", "category": "syntax"}],
+  "overallSuggestions": ["tips"],
+  "securityIssues": ["issues"],
+  "performanceIssues": ["issues"]
 }
-
-ANALYSIS REQUIREMENTS:
-1. **EVERY LINE**: Analyze each line individually, including imports, declarations, blank lines, comments
-2. **Line-by-Line Comments**: Provide detailed explanation for what each line accomplishes
-3. **Code Formatting**: Proper indentation, spacing, and structure
-4. **Best Practices**: Language-specific conventions and patterns
-5. **Performance**: Optimization opportunities and bottlenecks
-6. **Security**: Vulnerabilities and secure coding practices
-5. **Readability**: Clear variable names, comments, and structure
-6. **Error Handling**: Proper exception handling and edge cases
-7. **Maintainability**: Code organization and modularity
-
-Provide both a cleaned version (proper formatting) and refactored version (with improvements).`;
+Be very brief.`;
     }
 
     // Create enhanced user prompt for SQL
@@ -1925,19 +1883,19 @@ app.get('/api/health', (req, res) => {
 });
 
 // Upload and analyze image
-app.post('/api/analyze', upload.single('image'), async (req, res) => {
+app.post('/api/analyze', upload.array('images', 10), async (req, res) => {
   try {
-    if (!req.file) {
+    if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No image file provided' });
     }
 
     const { 
       prompt = 'Explain this code and provide suggestions for improvement',
-      extractionMethod = 'tesseract-multi'
+      extractionMethod = 'tesseract-standard'
     } = req.body;
     
     // Generate cache key including extraction method
-    const cacheKey = `${req.file.buffer.toString('base64').slice(0, 50)}_${prompt}_${extractionMethod}`;
+    const cacheKey = `${req.files[0].buffer.toString('base64').slice(0, 50)}_${prompt}_${extractionMethod}`;
     
     // Check cache first
     const cachedResult = cache.get(cacheKey);
@@ -1947,7 +1905,7 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
 
     // Extract code from image using selected method
     console.log(`Extracting code from image using method: ${extractionMethod}...`);
-    const rawExtractedCode = await extractCodeFromImage(req.file.buffer, extractionMethod);
+    const rawExtractedCode = await extractCodeFromImage(req.files[0].buffer, extractionMethod);
     
     if (!rawExtractedCode || rawExtractedCode.trim().length === 0) {
       return res.status(400).json({ 
@@ -1995,7 +1953,12 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
 
     // Analyze code with LLM
     console.log('Analyzing code with LLM...');
-    const analysis = await analyzeCodeWithLLM(cleanedCode, prompt, detectedLanguage);
+    const analysis = await Promise.race([
+      analyzeCodeWithLLM(cleanedCode, prompt, detectedLanguage),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('LLM analysis timeout after 30 seconds')), 30000)
+      )
+    ]);
 
     const result = {
       extractedCode: cleanedCode,
